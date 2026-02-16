@@ -1,0 +1,102 @@
+.main {
+  background:
+        radial-gradient(circle at 30% 20%,
+            rgba(71, 68, 64, 0.6),
+            transparent 40%),
+        radial-gradient(circle at 60% 40%,
+            rgba(180, 97, 2, 0.6),
+            transparent 45%),
+        linear-gradient(180deg,
+            #eeb59f 0%,
+            #ffffff 100%);
+
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
+
+.header {
+  height: 60vh; 
+  background-image: url('../../../public/img/Header.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.header-overlay {
+  text-align: center;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.5); 
+  padding: 2rem;
+  border-radius: 8px;
+}
+
+.header h1 {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.header p {
+  font-size: 1.2rem;
+}
+.nav-item {
+  text-decoration: none;
+  color: black;
+  margin-right: 20px;
+  display: flex;
+  justify-content: end;
+};
+
+.card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-img-top {
+  height: 200px; 
+  object-fit: cover; 
+}
+
+.card-body {
+  flex-grow: 1; 
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.pizza-price {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #007728;
+  text-align: center;
+  margin: 15px 0;
+}
+.card-buttons {
+  display: flex;
+  justify-content: space-around;
+  padding-bottom: 15px;
+}
+.card-text ul {
+  list-style: none;
+  padding: 0;
+  text-align: center;
+}
+.card-price{
+  font-weight: bold;
+  margin-top: 10px;
+  color: green;
+}
+.footer {
+  background-color: #000000;
+  color: rgb(255, 217, 0);
+  text-align: center;
+  padding: 20px 0;
+  font-family: Arial, Helvetica, sans-serif;
+}
+.footer h1 {
+  margin: 5px 0;
+font-size: small;
+}

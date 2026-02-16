@@ -1,0 +1,40 @@
+.header {
+  height: 30vh; 
+  background-image: url('../../../public/img/Header.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+};
+
+.header-overlay {
+  text-align: center;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.5); 
+  padding: 2rem;
+  border-radius: 8px;
+};
+
+.header h1 {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+};
+
+.header p {
+  font-size: 1.2rem;
+};
+.nav-link1 {
+  text-decoration: none;
+  color: black;
+  margin-right: 20px;
+  display: flex;
+  justify-content: end;
+};
+.className {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+};
