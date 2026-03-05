@@ -24,7 +24,7 @@ export const Navegacion = ({ token, total }) => {
               </>
             ) : (
               <> <li className="nav-item">
-                <button className="btn btn-outline-secondary" href="#"><i className="fa-solid fa-lock"></i>Login</button>
+                <button className="btn btn-outline-secondary" ><i className="fa-solid fa-lock"></i>Login</button>
               </li>
                 <li>
                   <button className="btn btn-outline-secondary" href="#"><i className="fa-solid fa-lock"></i>Register</button>
