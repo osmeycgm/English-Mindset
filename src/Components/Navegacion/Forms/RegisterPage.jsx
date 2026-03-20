@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+
 export const RegisterPage = () => {
   const [mensaje, setMensaje] = useState("");
   const [tipo, setTipo] = useState("");
@@ -36,9 +37,34 @@ export const RegisterPage = () => {
   };
 
   return (
-    <>
-      <section className="formulario-section">
-        <div className="formulario-overlay">
+      <div className="RegisterPage" 
+      style={{
+        minHeight: "100vh",
+           display: "flex",
+    alignItems: "center",  
+    justifyContent: "center", 
+        background: `
+          radial-gradient(circle at 30% 20%, rgba(71, 68, 64, 0.6), transparent 40%),
+          radial-gradient(circle at 60% 40%, rgba(180, 97, 2, 0.6), transparent 45%),
+          linear-gradient(180deg, #eeb59f 0%, #ffffff 100%)
+        `,
+        backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed"
+      }}
+    >
+      <section style={{ 
+        width: "25rem", 
+        margin: "50px auto auto auto", 
+        display: "flex", 
+        flexDirection: "column", 
+        alignItems: "center", 
+        justifyContent: "center", 
+        padding: "10px", 
+        border: "1px solid #ccc", 
+        borderRadius: "8px", 
+        backgroundColor: "#f8f9fa"
+      }}>
+        <div style={{ alignItems: "center", textAlign: "center"}}>
           <h2>Registrate</h2>
           <form className="RegisterPage" onSubmit={validarInput}>
 
@@ -94,7 +120,7 @@ export const RegisterPage = () => {
           </form>
         </div>
       </section>
-    </>
+    </div>
   );
 };
 

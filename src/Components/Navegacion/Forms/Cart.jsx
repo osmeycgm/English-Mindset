@@ -2,10 +2,11 @@ import { useState } from "react"
 import { pizzaCart } from "../../../pizzas"
 import { formatNumber } from "../../../helpers/formatNumber"
 
+
 const Cart = () => {
     const [cart, setCart] = useState(pizzaCart);
     const [delivery, setDelivery] = useState(false);
-    const delivery_fee = 2000;
+    const delivery_fee = 750;
 
     const sumarCantidad = (id) => {
         setCart(cart.map(pizza =>
@@ -20,11 +21,26 @@ const Cart = () => {
     };
 
     return (
-        <>
+        <div 
+      className="loginPage" 
+      style={{
+        minHeight: "100vh",
+           display: "flex",
+    alignItems: "center",  
+    justifyContent: "center", 
+        background: `
+          radial-gradient(circle at 30% 20%, rgba(71, 68, 64, 0.6), transparent 40%),
+          radial-gradient(circle at 60% 40%, rgba(180, 97, 2, 0.6), transparent 45%),
+          linear-gradient(180deg, #eeb59f 0%, #ffffff 100%)
+        `,
+        backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed"
+      }}
+    >
             <div className="cardcart" 
             style={{ 
                 width: "25rem", 
-                margin: "50px auto auto auto", 
+                margin: "50px auto 50px auto", 
                 display: "flex", 
                 flexDirection: "column", 
                 alignItems: "center", 
@@ -68,7 +84,7 @@ const Cart = () => {
                         </div>
                     ))}
                     <div className="mt-3">
-                        <div className="form-check mb-2">
+                        <div className="form-check mb-2" style={{backgroundColor: "#05cf31", color:"#f8f9fa", padding:"auto 2px auto 2px"}}>
                             <input
                                 className="form-check-input"
                                 type="checkbox"
@@ -76,8 +92,8 @@ const Cart = () => {
                                 checked={delivery}
                                 onChange={() => setDelivery(!delivery)}
                             />
-                            <label className="form-check-label" htmlFor="deliveryCheck">
-                                Envío a domicilio {delivery ? `(+$${(delivery_fee)})` : "(por solo $2000)"}
+                            <label className="form-check-label" htmlFor="deliveryCheck" style={{fontSize:"13px"}}>
+                                Envío a domicilio {delivery ? `(+$${(delivery_fee)})` : "(por solo $750)"}
                             </label>
                         </div>
                         {delivery && (
@@ -90,7 +106,7 @@ const Cart = () => {
                     </div>
                 </div>
             </div>
-        </>
+        </div>
     )
 }
 export default Cart

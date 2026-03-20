@@ -1,7 +1,7 @@
 import pizzas from "../../pizzas"
 import { CardPizza } from "./CardPizza/CardPizza"
 import { Header } from "./Header/Header"
-
+import { useEffect } from "react"
 
 export const Home = () => {
     return (
