@@ -1,18 +1,22 @@
-export const CardPizza = (Props) => {
+
+export const CardPizza = ({ img, name, ingredients, price, onAgregar }) => {
     return (
-        <>
-            <div className="card" style={{width: "18rem"}}>
-                <img src={Props.img} className="card-img-top" alt="..."/>
-                <div className="card-body">
-                    <h5 className="card-title">{Props.name}</h5>
-                    <div className="card-text">{Props.ingredients}</div>  {/* ← div, no p */}
-                    <p className="card-text pizza-price">{Props.price}</p>
-                    <div className="card-buttons">
-                        <a href="" className="btn btn-secondary">Ver más</a>
-                        <a href="" className="btn btn-primary">Añadir al carrito</a>
-                    </div>
+        <div className="card" style={{ width: "18rem" }}>
+            <img src={img} className="card-img-top" alt={name} />
+            <div className="card-body">
+                <h5 className="card-title">{name}</h5>
+                <div className="card-text">{ingredients}</div>
+                <p className="card-text pizza-price">{price}</p>
+                <div className="card-buttons">
+                    <button className="btn btn-secondary">Ver más</button>
+                    <button 
+                        className="btn btn-primary" 
+                        onClick={onAgregar}
+                    >
+                        Añadir al carrito
+                    </button>
                 </div>
             </div>
-        </>
-    )
+        </div>
+    );
 }

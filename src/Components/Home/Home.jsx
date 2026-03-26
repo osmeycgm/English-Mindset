@@ -1,9 +1,11 @@
 import pizzas from "../../pizzas"
 import { CardPizza } from "./CardPizza/CardPizza"
 import { Header } from "./Header/Header"
-import { useEffect } from "react"
+import { useCart } from "../Context/CartContext"
 
 export const Home = () => {
+    const {agregarAlCarrito} = useCart ()
+
     return (
         <>
             <main className="main">
@@ -19,7 +21,8 @@ export const Home = () => {
                                     name={pizza.name}
                                     price={`$${pizza.price}`}
                                     ingredients={<ul>{pizza.ingredients.map((ingredient, index) => <li key={index}>{ingredient}</li>)}</ul>}
-                                    img={pizza.img} />
+                                    img={pizza.img} 
+                                    onAgregar={() => agregarAlCarrito(pizza)}/>
                             </div>
                         ))}
                     </div>
