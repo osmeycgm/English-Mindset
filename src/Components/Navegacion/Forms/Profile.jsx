@@ -1,4 +1,14 @@
+import { useUser } from "../../Context/UserContext" 
+import { useNavigate } from "react-router-dom"
+
 export const Profile = () => {
+  const { logout } = useUser()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate("/") 
+  }
   const usuario = {
     nombre: "Osmey Gonzalez",
     email: "osmey007@gmail.com",
@@ -73,8 +83,8 @@ export const Profile = () => {
         <button
           className="btn btn-danger w-100"
           style={{ marginTop: "1.5rem" }}
-          onClick={() => alert("Sesión cerrada")}
-        >
+          onClick={handleLogout} 
+          >
           Cerrar sesión
         </button>
 

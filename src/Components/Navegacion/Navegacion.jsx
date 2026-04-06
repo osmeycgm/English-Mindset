@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
 import { useCart } from "../Context/CartContext";
+import { useUser } from "../Context/UserContext";
 
-export const Navegacion = ({ token }) => {
+export const Navegacion = () => {
   const { total, delivery, delivery_fee } = useCart()
+  const { token, logout } = useUser()
 
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -13,21 +15,25 @@ export const Navegacion = ({ token }) => {
         </button>
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav">
+
             <li className="nav-item">
               <Link to="/">
                 <button className="btn btn-outline-light" style={{ fontWeight: "bold" }}>Home</button>
               </Link>
             </li>
+
             {token ? (
               <>
                 <li className="nav-item">
                   <Link to="/profile">
-                    <button className="btn btn-outline-light"><i className="fa-solid fa-unlock"></i> Profile</button>
+                    <button className="btn btn-outline-light"><i className="fa-solid fa-unlock"></i> 
+                    Profile</button>
                   </Link>
                 </li>
                 <li className="nav-item">
-                  <Link to="/logout">
-                    <button className="btn btn-outline-danger"><i className="fa-solid fa-unlock"></i> Logout</button>
+                  <Link to="/">
+                    <button className="btn btn-outline-danger" onClick={logout}><i className="fa-solid fa-unlock"></i> 
+                    Logout</button>
                   </Link>
                 </li>
               </>
@@ -53,13 +59,8 @@ export const Navegacion = ({ token }) => {
         <div className="cart">
           <Link to="/cart">
             <button className="btn btn-outline-success">
-              🛒 Total: ${total() + (delivery ? delivery_fee : 0)}  {/* ← total del context */}
+              🛒 Total: ${total() + (delivery ? delivery_fee : 0)}
             </button>
-          </Link>
-        </div>
-        <div className="nav-item">
-          <Link to="/profile">
-            <button className="btn btn-outline-light"><i className="fa-solid fa-user"></i> Profile</button>
           </Link>
         </div>
       </div>

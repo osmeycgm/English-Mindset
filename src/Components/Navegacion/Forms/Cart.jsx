@@ -1,8 +1,11 @@
 import { useCart } from "../../Context/CartContext";
+import { useUser } from "../../Context/UserContext";
+import { Link } from "react-router-dom"
 
 
 const Cart = () => {
     const { cart, delivery, setDelivery, delivery_fee, sumarCantidad, restarCantidad, total } = useCart()
+    const { token } = useUser()
 
     return (
         <div style={{
@@ -67,7 +70,17 @@ const Cart = () => {
                     <h5 className="fw-bold">
                         Total a pagar: $ {(total() + (delivery ? delivery_fee : 0))}
                     </h5>
-                    <button className="btn btn-primary w-100" onClick={() => alert("Tu compra fue procesada con éxito")}>Finalizar Compra</button>
+                       <button 
+            className="btn btn-primary w-100" onClick={() => alert("Tu compra fue procesada con éxito")}
+            disabled={!token}
+            style={{ opacity: token ? 1 : 0.5, cursor: token ? "pointer" : "not-allowed" }}>
+            {token ? "Finalizar Compra" : "Inicia sesión para pagar"}
+        </button>
+       <div style={{display: "flex", textAlign: "center", alignContent: "center", justifyContent: "center", marginTop: "10px"}}>
+    {!token && (
+        <Link to="/login">Iniciar sesión</Link>
+    )}
+</div>
                 </div>
             </div>
         </div>
