@@ -1,49 +1,44 @@
 import { createContext, useState, useContext } from "react"
-import { pizzaCart } from "../../pizzas"
+// Importamos el array desde la raíz de src
+import { servicios } from "../../servicios.js";
 
 export const CartContext = createContext()
 
 export const CartProvider = ({ children }) => {
     const [cart, setCart] = useState([])
-    const [delivery, setDelivery] = useState(false)
-    const delivery_fee = 750
 
+    // En servicios digitales, normalmente no sumamos cantidad (no compras 2 veces el mismo plan)
+    // Pero mantenemos la lógica por si vendes suplementos físicos luego
     const sumarCantidad = (id) => {
-        setCart(cart.map(pizza =>
-            pizza.id === id ? { ...pizza, count: pizza.count + 1 } : pizza))
+        setCart(cart.map(item =>
+            item.id === id ? { ...item, count: item.count + 1 } : item))
     }
 
     const restarCantidad = (id) => {
-        setCart(cart.map(pizza =>
-            pizza.id === id && pizza.count > 0 ? { ...pizza, count: pizza.count - 1 } : pizza))
+        setCart(cart.map(item =>
+            item.id === id && item.count > 1 ? { ...item, count: item.count - 1 } : item))
     }
 
     const total = () => {
-        return cart.reduce((acc, pizza) => acc + (pizza.price * pizza.count), 0)
+        return cart.reduce((acc, item) => acc + (item.price * item.count), 0)
     }
 
-const agregarAlCarrito = (pizza) => {
-    setCart((prevCart) => {
-        const existe = prevCart.find((p) => p.id === pizza.id);
-        if (existe) {
-            return prevCart.map((p) =>
-                p.id === pizza.id ? { ...p, count: p.count + 1 } : p
-            );
-        } else {
-
-            return [...prevCart, { ...pizza, count: 1 }];
-        }
-    });
-};
-
-
+    const agregarAlCarrito = (item) => {
+        setCart((prevCart) => {
+            const existe = prevCart.find((p) => p.id === item.id);
+            if (existe) {
+                return prevCart.map((p) =>
+                    p.id === item.id ? { ...p, count: p.count + 1 } : p
+                );
+            } else {
+                return [...prevCart, { ...item, count: 1 }];
+            }
+        });
+    };
 
     return (
         <CartContext.Provider value={{
             cart,
-            delivery,
-            setDelivery,
-            delivery_fee,
             sumarCantidad,
             restarCantidad,
             total,

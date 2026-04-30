@@ -9,7 +9,7 @@ const NotFound = () => {
       <h2 className="mb-4" style={{
         textAlign:"center", 
         alignItems:"center"}}>
-          The page you are trying to reach doesn't exist :/</h2>
+          Lo siento, la página que buscas no existe. :/</h2>
     </Container>
   );
 };

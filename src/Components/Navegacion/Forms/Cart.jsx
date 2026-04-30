@@ -1,11 +1,43 @@
-import { useCart } from "../../Context/CartContext";
-import { useUser } from "../../Context/UserContext";
+import { useCart } from "../../Context/CartContext"
+import { useUser } from "../../Context/UserContext"
 import { Link } from "react-router-dom"
 
-
 const Cart = () => {
-    const { cart, delivery, setDelivery, delivery_fee, sumarCantidad, restarCantidad, total } = useCart()
+    // Solo traemos lo necesario, eliminamos delivery y sumar/restar
+    const { cart, setCart, total } = useCart()
     const { token } = useUser()
+
+    // Conectamos con el backend para procesar la compra
+    const handleCheckout = async () => {
+        try {
+            const response = await fetch("http://localhost:5000/api/checkouts", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    // Enviamos el carrito tal cual
+                    cart: cart 
+                })
+            })
+            const data = await response.json()
+
+            if (response.ok) {
+                alert("¡Tu inscripción fue procesada con éxito! 💪 Empieza a entrenar hoy.")
+                setCart([]) // Vaciamos el carrito tras comprar
+            } else {
+                alert("Error: " + data.message)
+            }
+        } catch (err) {
+            alert("Error de conexión: " + err.message)
+        }
+    }
+
+    // Función para quitar un plan del carrito
+    const eliminarItem = (id) => {
+        setCart(cart.filter(item => item.id !== id))
+    }
 
     return (
         <div style={{
@@ -13,75 +45,91 @@ const Cart = () => {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: `
-              radial-gradient(circle at 30% 20%, rgba(71, 68, 64, 0.6), transparent 40%),
-              radial-gradient(circle at 60% 40%, rgba(180, 97, 2, 0.6), transparent 45%),
-              linear-gradient(180deg, #eeb59f 0%, #ffffff 100%)
-            `,
-            backgroundRepeat: "no-repeat",
-            backgroundAttachment: "fixed"
+            // Un fondo más moderno y fitness (oscuro y limpio)
+            background: `linear-gradient(135deg, #1f1f1f 0%, #343a40 100%)`,
+            padding: "20px"
         }}>
-            <div style={{
-                width: "25rem",
-                margin: "50px auto",
-                padding: "30px",
-                border: "1px solid #ccc",
-                borderRadius: "8px",
-                backgroundColor: "#f8f9fa"
+            <div className="shadow-lg" style={{
+                width: "100%",
+                maxWidth: "28rem",
+                padding: "40px 30px",
+                borderRadius: "15px",
+                backgroundColor: "#ffffff"
             }}>
-                <h3 style={{display:"flex", alignItems:"center", textAlign:"center"}}>Detalles de la compra</h3>
-                {cart.length === 0 ? (
-    <p className="text-center">Tu carrito esta vacio. <br /> Elige una pizza🍕</p>
-   
-) : (
-    cart.filter(p => p.count > 0).map(pizza => (
-                        <div key={pizza.id} className="d-flex justify-content-between align-items-center mb-3">
-                            <div className="d-flex align-items-center">
-                                <img src={pizza.img} alt={pizza.name} style={{ width: "50px", height: "50px" }} className="me-2" />
-                                <span>{pizza.name}</span>
-                            </div>
-                            <div className="d-flex align-items-center gap-3">
-                                <h6 className="mb-0">${pizza.price}</h6>
-                                <div className="d-flex align-items-center gap-2">
-                                    <button className="btn btn-outline-secondary btn-sm" onClick={() => restarCantidad(pizza.id)}>-</button>
-                                    <span className="fw-bold">{pizza.count}</span>
-                                    <button className="btn btn-outline-secondary btn-sm" onClick={() => sumarCantidad(pizza.id)}>+</button>
-                                </div>
-                            </div>
-                        </div>
-                    )))}
+                <h3 className="fw-bold text-center mb-4" style={{ color: "#333" }}>Resumen de tu Plan</h3>
 
-                <div className="mt-3">
-                    <div className="form-check mb-2" style={{ backgroundColor: "#05cf31", color: "#f8f9fa", padding: "2px" }}>
-                        <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id="deliveryCheck"
-                            checked={delivery}
-                            onChange={() => setDelivery(!delivery)}
-                        />
-                        <label className="form-check-label" htmlFor="deliveryCheck" style={{ fontSize: "13px" }}>
-                            Envío a domicilio {delivery ? `(+$$(delivery_fee))` : "(+$750)"}
-                        </label>
+                {cart.length === 0 ? (
+                    <div className="text-center py-4">
+                        <p className="text-muted mb-4">No has seleccionado ningún plan aún. <br /> ¡Es hora de empezar tu cambio! ⚡</p>
+                        <Link to="/" className="btn btn-outline-dark" style={{ borderRadius: "20px" }}>
+                            Ver Entrenamientos
+                        </Link>
                     </div>
-                    {delivery && (
-                        <h7 className="fw-bold"> Envío: ${(delivery_fee)} </h7>
-                    )}
-                    <h5 className="fw-bold">
-                        Total a pagar: $ {(total() + (delivery ? delivery_fee : 0))}
-                    </h5>
-                       <button 
-            className="btn btn-primary w-100" onClick={() => alert("Tu compra fue procesada con éxito")}
-            disabled={!token}
-            style={{ opacity: token ? 1 : 0.5, cursor: token ? "pointer" : "not-allowed" }}>
-            {token ? "Finalizar Compra" : "Inicia sesión para pagar"}
-        </button>
-       <div style={{display: "flex", textAlign: "center", alignContent: "center", justifyContent: "center", marginTop: "10px"}}>
-    {!token && (
-        <Link to="/login">Iniciar sesión</Link>
-    )}
-</div>
-                </div>
+                ) : (
+                    <>
+                        <div className="mb-4">
+                            {cart.map(item => (
+                                <div key={item.id} className="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                                    <div className="d-flex align-items-center">
+                                        <img 
+                                            src={item.img} 
+                                            alt={item.name} 
+                                            style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "8px" }} 
+                                            className="me-3" 
+                                        />
+                                        <div>
+                                            <h6 className="mb-1 fw-bold">{item.name}</h6>
+                                            <span className="text-muted small">Acceso Digital</span>
+                                        </div>
+                                    </div>
+                                    <div className="d-flex flex-column align-items-end gap-2">
+                                        <h6 className="mb-0 fw-bold" style={{ color: "#d63384" }}>${item.price.toLocaleString()}</h6>
+                                        {/* Botón de eliminar en vez de cantidades */}
+                                        <button 
+                                            className="btn btn-link text-danger p-0 text-decoration-none small" 
+                                            onClick={() => eliminarItem(item.id)}
+                                            style={{ fontSize: "0.8rem" }}
+                                        >
+                                            Eliminar
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="mt-4 pt-2 border-top">
+                            <div className="d-flex justify-content-between align-items-center mb-4">
+                                <h5 className="fw-bold mb-0 text-muted">Total a pagar</h5>
+                                <h4 className="fw-bold mb-0">${total().toLocaleString()}</h4>
+                            </div>
+
+                            <button
+                                className="btn w-100 fw-bold py-3 mb-3"
+                                onClick={handleCheckout}
+                                disabled={!token}
+                                style={{ 
+                                    backgroundColor: token ? "#d63384" : "#e9ecef",
+                                    color: token ? "white" : "#6c757d",
+                                    border: "none",
+                                    borderRadius: "10px",
+                                    cursor: token ? "pointer" : "not-allowed",
+                                    transition: "all 0.3s"
+                                }}
+                            >
+                                {token ? "Finalizar Inscripción" : "Inicia sesión para continuar"}
+                            </button>
+                            
+                            {!token && (
+                                <div className="text-center mt-3">
+                                    <span className="text-muted small">¿Ya tienes cuenta? </span>
+                                    <Link to="/login" className="small fw-bold text-dark text-decoration-none">
+                                        Ingresa aquí
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     )

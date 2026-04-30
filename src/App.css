@@ -13,9 +13,15 @@
     background-repeat: no-repeat;
     background-attachment: fixed;
 }
-
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.hide-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
 .header {
-  height: 60vh; 
+  height: 80vh; 
   background-image: url('../../../public/img/Header.jpg');
   background-size: cover;
   background-position: center;

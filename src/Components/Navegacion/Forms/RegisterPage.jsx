@@ -1,127 +1,81 @@
-import { useState } from "react";
-
+import { useState } from "react"
+import { useUser } from "../../Context/UserContext"
+import { useNavigate } from "react-router-dom"
 
 export const RegisterPage = () => {
-  const [mensaje, setMensaje] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [email, setEmail] = useState("");
-  const [contraseña, setContraseña] = useState("");
-  const [confirmar, setConfirmar] = useState("");
+  const [mensaje, setMensaje] = useState("")
+  const [tipo, setTipo] = useState("")
+  const [email, setEmail] = useState("")
+  const [contraseña, setContraseña] = useState("")
+  const [confirmar, setConfirmar] = useState("")
+  const { register } = useUser()
+  const navigate = useNavigate()
 
-  const validarInput = (e) => {
-    e.preventDefault();
-
+  const validarInput = async (e) => {
+    e.preventDefault()
     if (!email.trim() || !contraseña.trim() || !confirmar.trim()) {
-      setTipo("error");
-      setMensaje("Todos los campos son obligatorios");
-      return;
+      setTipo("error"); setMensaje("Por favor, completa todos los campos"); return
     }
-
     if (contraseña.length < 6) {
-      setTipo("error");
-      setMensaje("La contraseña debe tener al menos 6 caracteres");
-      return;
+      setTipo("error"); setMensaje("La seguridad es primero: mínimo 6 caracteres"); return
     }
-
     if (contraseña !== confirmar) {
-      setTipo("error");
-      setMensaje("Las contraseñas no coinciden");
-      return;
+      setTipo("error"); setMensaje("Las contraseñas deben ser idénticas"); return
     }
-
-    setTipo("success");
-    setMensaje("Cuenta registrada con éxito");
-    setEmail("");
-    setContraseña("");
-    setConfirmar("");
-  };
+    const result = await register(email, contraseña)
+    if (result.success) {
+      setTipo("success"); setMensaje("¡Registro exitoso! Preparando tu perfil...");
+      setTimeout(() => navigate("/"), 1500)
+    } else {
+      setTipo("error"); setMensaje(result.message)
+    }
+  }
 
   return (
-      <div className="RegisterPage" 
-      style={{
-        minHeight: "100vh",
-           display: "flex",
-    alignItems: "center",  
-    justifyContent: "center", 
-        background: `
-          radial-gradient(circle at 30% 20%, rgba(71, 68, 64, 0.6), transparent 40%),
-          radial-gradient(circle at 60% 40%, rgba(180, 97, 2, 0.6), transparent 45%),
-          linear-gradient(180deg, #eeb59f 0%, #ffffff 100%)
-        `,
-        backgroundRepeat: "no-repeat",
-        backgroundAttachment: "fixed"
-      }}
-    >
-      <section style={{ 
-        width: "25rem", 
-        margin: "50px auto auto auto", 
-        display: "flex", 
-        flexDirection: "column", 
-        alignItems: "center", 
-        justifyContent: "center", 
-        padding: "10px", 
-        border: "1px solid #ccc", 
-        borderRadius: "8px", 
-        backgroundColor: "#f8f9fa"
+    <div style={{
+      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+      background: "linear-gradient(135deg, #f0f2f5 0%, #6e0543 80%)", padding: "40px"
+    }}>
+      <section className="shadow-lg" style={{
+        width: "100%", maxWidth: "420px", padding: "2rem", borderRadius: "15px", backgroundColor: "#fff"
       }}>
-        <div style={{ alignItems: "center", textAlign: "center"}}>
-          <h2>Registrate</h2>
-          <form className="RegisterPage" onSubmit={validarInput}>
-
-            {mensaje && (
-              <p
-                style={{
-                  color: tipo === "error" ? "red" : "green",
-                  padding: "8px",
-                  justifyContent: "center",
-                  textAlign: "center",
-                }}
-              >
-                {mensaje}
-              </p>
-            )}
-
-            <div className="form-group">
-              <label>Email</label>
-              <input
-                type="text"
-                name="email"
-                className="form-control"
-                onChange={(e) => setEmail(e.target.value)}
-                value={email}
-              />
+        <div className="text-center mb-4">
+          <h2 className="fw-bold">Únete a ClaudFit</h2>
+          <p className="text-muted small">Tu transformación física y lingüística empieza hoy</p>
+        </div>
+        <form onSubmit={validarInput}>
+          {mensaje && (
+            <div className={`alert ${tipo === "error" ? "alert-danger" : "alert-success"} py-2 small text-center`}>
+              {mensaje}
             </div>
-
-            <div className="form-group">
-              <label>Contraseña</label>
-              <input
-                type="password"
-                name="contraseña"
-                className="form-control"
-                onChange={(e) => setContraseña(e.target.value)}
-                value={contraseña}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Confirmar Contraseña</label>
-              <input
-                type="password"
-                name="confirmar"
-                className="form-control"
-                onChange={(e) => setConfirmar(e.target.value)}
-                value={confirmar}
-              />
-            </div>
-
-            <button type="submit" className="btn btn-primary" style={{margin: "10px"}}>
-              Enviar
-            </button>
-          </form>
+          )}
+          <div className="mb-3 text-start">
+            <label className="form-label small fw-bold">Correo Electrónico</label>
+            <input type="email" className="form-control" placeholder="tu@email.com"
+              onChange={(e) => setEmail(e.target.value)} value={email} />
+          </div>
+          <div className="mb-3 text-start">
+            <label className="form-label small fw-bold">Contraseña</label>
+            <input type="password" className="form-control" placeholder="Crea una clave segura"
+              onChange={(e) => setContraseña(e.target.value)} value={contraseña} />
+          </div>
+          <div className="mb-4 text-start">
+            <label className="form-label small fw-bold">Confirmar Contraseña</label>
+            <input type="password" className="form-control" placeholder="Repite tu clave"
+              onChange={(e) => setConfirmar(e.target.value)} value={confirmar} />
+          </div>
+          <button type="submit" className="btn btn-primary w-100 fw-bold py-2" 
+            style={{ backgroundColor: "#d63384", border: "none", boxShadow: "0 4px 15px rgba(214, 51, 132, 0.3)" }}>
+            Registrarme Ahora
+          </button>
+        </form>
+        <div className="mt-4 text-center">
+          <p className="small text-muted">¿Ya eres parte de nosotros? <span onClick={() => navigate("/login")} 
+            style={{ color: "#d63384", cursor: "pointer", fontWeight: "bold" }}>Inicia sesión</span></p>
         </div>
       </section>
     </div>
-  );
-};
+  )
+}
 
-export default RegisterPage;
+export default RegisterPage

@@ -1,6 +1,5 @@
 .header {
   height: 30vh; 
-  background-image: url('../../../public/img/Header.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -9,7 +8,9 @@
   justify-content: center;
   align-items: center;
 };
-
+.header-fit {
+  background-image: url('../../../public/img/Header.jpg');
+}
 .header-overlay {
   text-align: center;
   color: white;
@@ -26,6 +27,7 @@
 .header p {
   font-size: 1.2rem;
 };
+
 .nav-link1 {
   text-decoration: none;
   color: black;
