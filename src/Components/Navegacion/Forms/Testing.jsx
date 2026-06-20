@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 // IMPORTACIÓN DE PREGUNTAS: Asegúrate de ajustar los "../" según la ubicación exacta de tu Servicios.jsx
-import { questions } from "../../../Servicios"; 
+import { questions } from "../../../servicios"; 
 
 export const Testing = () => {
   const navigate = useNavigate();
