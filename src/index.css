@@ -63,3 +63,18 @@
   font-size: 0.95rem;
   line-height: 1.6;
 }
+/* Animación de desvanecimiento */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px); /* Empieza un poquito más arriba */
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mensaje-animado {
+  animation: fadeIn 0.5s ease-out forwards;
+}

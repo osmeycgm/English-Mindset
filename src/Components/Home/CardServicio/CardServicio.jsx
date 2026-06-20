@@ -1,54 +1,116 @@
 import { Link } from "react-router-dom";
 
 export const CardServicio = ({ img, name, features = [], price, onAgregar, id, category }) => {
-    const isSubscription = category.toLowerCase().includes("suscripción") || category.toLowerCase().includes("acompañado");
-    const buttonLabel = isSubscription ? "Inscribirme" : "Obtener";
+  const isPlan = category?.toLowerCase().includes("plan") || category?.toLowerCase().includes("curso");
+  const buttonLabel = isPlan ? "Inscribirme" : "Obtener Material";
 
-    return (
-        <div className="card border-0 shadow-lg h-100" style={{ borderRadius: "20px", overflow: "hidden", backgroundColor: "#fff" }}>
-            {/* Imagen un poco más pequeña (ajusté height a 200px) */}
-            <div style={{ position: "relative", height: "200px" }}>
-                <img src={img} className="w-100 h-100" alt={name} style={{ objectFit: "cover" }} />
-                
-                {/* Overlay con Gradiente Oscuro */}
-                <div style={{
-                    position: "absolute", bottom: 0, left: 0, right: 0, height: "100%",
-                    background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 70%)",
-                    display: "flex", flexDirection: "column", justifyContent: "flex-end", 
-                    alignItems: "center", paddingBottom: "15px", textAlign: "center"
-                }}>
-                    <h3 className="text-white fw-bold text-uppercase m-0" style={{ fontSize: "1.2rem", letterSpacing: "1px" }}>
-                        {name}
-                    </h3>
-                    {/* Badge sobre la imagen (Fondo blanco, texto negro) */}
-                    <span className="badge mt-2 px-3 py-1" style={{ 
-                        backgroundColor: "#fff", color: "#333", borderRadius: "10px", fontSize: "0.7rem", fontWeight: "700"
-                    }}>
-                        {category}
-                    </span>
-                </div>
-            </div>
+  return (
+    <div 
+      className="h-100" 
+      style={{ 
+        position: "relative",
+        backgroundImage: `linear-gradient(to bottom, rgba(15, 23, 42, 0.1) 0%, rgba(15, 23, 42, 0.75) 100%), url(${img})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        borderRadius: "28px", 
+        minHeight: "440px", 
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "end",
+        overflow: "hidden",
+        boxShadow: "none",
+        border: "none",
+        transition: "box-shadow 0.3s ease" // Eliminamos transform de la transición
+      }}
+      // Eliminamos el translate aquí para quitar el salto de la card
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = "0 15px 30px rgba(15, 23, 42, 0.1)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = "none";
+      }}
+    >
 
-            {/* Cuerpo de la Card (Todo centrado) */}
-            <div className="card-body d-flex flex-column align-items-center text-center p-4">
-                <ul className="list-unstyled mb-3 text-muted" style={{ fontSize: "0.9rem", lineHeight: "1.8" }}>
-                    {features.map((f, i) => (
-                        <li key={i}>{f}</li>
-                    ))}
-                </ul>
+      {/* Contenedor flotante estilo Cristal */}
+      <div
+        style={{
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          backgroundColor: "rgba(15, 23, 42, 0.75)", 
+          border: "1px solid rgba(255, 255, 255, 0.15)",
+          borderRadius: "20px",
+          padding: "1.15rem 1.3rem",
+          margin: "0.6rem",
+          color: "#ffffff",
+          display: "flex",
+          flexDirection: "column"
+        }}
+      >
+        {/* Categoría */}
+        <span
+          className="fw-bold text-uppercase mb-1 d-inline-block"
+          style={{ color: "#38bdf8", letterSpacing: "1px", fontSize: "0.7rem" }}
+        >
+          {category}
+        </span>
 
-                <p className="fw-bold mb-3" style={{ color: "#d63384", fontSize: "1.4rem" }}>
-                    ${price.toLocaleString()}
-                </p>
+        {/* Título */}
+        <h3 className="fw-bold mb-2 text-white" style={{ fontSize: "1.3rem", lineHeight: "1.3" }}>
+          {name}
+        </h3>
 
-                <button 
-                    onClick={onAgregar} 
-                    className="btn w-100 fw-bold py-2 text-white" 
-                    style={{ backgroundColor: "#d63384", borderRadius: "10px", border: "none", fontSize: "1rem" }}
-                >
-                    {buttonLabel}
-                </button>
-            </div>
+        {/* Bullets Horizontales */}
+        <ul 
+          className="list-unstyled mb-3 text-white-50" 
+          style={{ 
+            fontSize: "0.85rem", 
+            lineHeight: "1.5", 
+            width: "100%",
+            display: "flex",
+            flexWrap: "wrap",     
+            columnGap: "16px",    
+            rowGap: "6px",        
+            padding: 0
+          }}
+        >
+          {features.map((f, i) => (
+            <li 
+              key={i} 
+              style={{ 
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                whiteSpace: "nowrap" 
+              }}
+            >
+              <i className="bi bi-check2 text-info" style={{ fontSize: "0.95rem" }} />
+              <span>{f}</span>
+            </li>
+          ))}
+        </ul>
+
+        {/* Línea horizontal eliminada (quitamos el borderTop) */}
+        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 pt-2.5">
+          <div>
+            <span className="fw-bold fs-4 text-white">${price.toLocaleString()}</span>
+            {isPlan && <span className="text-white-50" style={{ fontSize: "0.75rem" }}> / mes</span>}
+          </div>
+
+          <button
+            onClick={onAgregar}
+            className="btn btn-light px-4 py-2 fw-bold hover-jump-btn" // Agregamos la clase del salto
+            style={{ 
+              borderRadius: "50px", 
+              fontSize: "1rem", // Botón más grande
+              color: "#0f172a", 
+              boxShadow: "0 4px 12px rgba(255,255,255,0.12)"
+            }}
+          >
+            {buttonLabel} <i className="bi bi-arrow-right ms-1" />
+          </button>
         </div>
-    );
+
+      </div>
+    </div>
+  );
 };

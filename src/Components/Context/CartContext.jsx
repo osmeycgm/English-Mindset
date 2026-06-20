@@ -7,11 +7,9 @@ export const CartContext = createContext()
 export const CartProvider = ({ children }) => {
     const [cart, setCart] = useState([])
 
-    // En servicios digitales, normalmente no sumamos cantidad (no compras 2 veces el mismo plan)
-    // Pero mantenemos la lógica por si vendes suplementos físicos luego
     const sumarCantidad = (id) => {
         setCart(cart.map(item =>
-            item.id === id ? { ...item, count: item.count + 1 } : item))
+            item.id === id ? { ...item, count: (item.count || 1) + 1 } : item))
     }
 
     const restarCantidad = (id) => {
@@ -19,8 +17,10 @@ export const CartProvider = ({ children }) => {
             item.id === id && item.count > 1 ? { ...item, count: item.count - 1 } : item))
     }
 
+    // RESPALDO: Agregamos (item.count || 1) para que si el plan entra directo, 
+    // multiplique por 1 de forma automática y no falle con NaN
     const total = () => {
-        return cart.reduce((acc, item) => acc + (item.price * item.count), 0)
+        return cart.reduce((acc, item) => acc + (item.price * (item.count || 1)), 0)
     }
 
     const agregarAlCarrito = (item) => {
@@ -28,7 +28,7 @@ export const CartProvider = ({ children }) => {
             const existe = prevCart.find((p) => p.id === item.id);
             if (existe) {
                 return prevCart.map((p) =>
-                    p.id === item.id ? { ...p, count: p.count + 1 } : p
+                    p.id === item.id ? { ...p, count: (p.count || 1) + 1 } : p
                 );
             } else {
                 return [...prevCart, { ...item, count: 1 }];
@@ -39,6 +39,7 @@ export const CartProvider = ({ children }) => {
     return (
         <CartContext.Provider value={{
             cart,
+            setCart, // ← ¡FALTABA ESTO! Ahora ya puede ser usado en Home.jsx y Cart.jsx
             sumarCantidad,
             restarCantidad,
             total,

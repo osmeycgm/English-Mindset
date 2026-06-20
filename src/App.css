@@ -13,6 +13,7 @@
     background-repeat: no-repeat;
     background-attachment: fixed;
 }
+
 .hide-scrollbar::-webkit-scrollbar {
     display: none;
 }
@@ -105,4 +106,26 @@
 .footer p {
   margin: 0.5rem 0;
   font-size: 0.9rem;
+}
+/* Sombras difuminadas estilo Apple/Aesthetic */
+.shadow-premium {
+  box-shadow: 0 10px 35px -5px rgba(30, 58, 138, 0.04), 
+              0 20px 25px -5px rgba(30, 58, 138, 0.02) !important;
+}
+
+/* Efectos Hover de la Tarjeta */
+.aesthetic-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 25px 50px -12px rgba(30, 58, 138, 0.12) !important;
+}
+
+.aesthetic-card:hover .card-img-aesthetic {
+  transform: scale(1.06);
+}
+
+/* Animación sutil al botón */
+.aesthetic-btn:hover {
+  background-color: #0369a1 !important; /* Pasa a un azul más vivo en hover */
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(3, 105, 161, 0.25);
 }
