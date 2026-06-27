@@ -9,7 +9,7 @@
   align-items: center;
 };
 .header-fit {
-  background-image: url('../../../public/img/Header.jpg');
+  background-image: url('/img/Header.jpg');
 }
 .header-overlay {
   text-align: center;

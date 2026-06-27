@@ -12,6 +12,7 @@ export const UserProvider = ({ children }) => {
     // PERSISTENCIA DE LA SESIÓN: Si hay un token activo, se mantiene al recargar la página
     useEffect(() => {
         if (token) {
+            console.log('DEBUG UserContext: guardando token en localStorage', token)
             localStorage.setItem("em_token", token)
             localStorage.setItem("em_email", email)
             localStorage.setItem("em_id", id)
@@ -21,6 +22,10 @@ export const UserProvider = ({ children }) => {
             localStorage.removeItem("em_id")
         }
     }, [token, email, id])
+
+    useEffect(() => {
+        console.log('DEBUG UserContext: token cargado desde localStorage', token)
+    }, [])
 
     // ==========================================
     // INGRESO CON GOOGLE (Conexión Real Backend)
@@ -40,6 +45,7 @@ export const UserProvider = ({ children }) => {
                 setEmail(userEmail)
                 // Usamos el ID devuelto por el servidor o un fallback temporal
                 setId(data.user?.id || Date.now().toString()) 
+                console.log('DEBUG UserContext loginWithGoogle recibido token:', data.token)
                 return { success: true }
             } else {
                 // Captura el mensaje exacto del servidor (ej: "ya existe esta cuenta")
@@ -65,6 +71,12 @@ export const UserProvider = ({ children }) => {
             const data = await response.json()
 
             if (response.ok && data.success) {
+                if (data.token) {
+                    setToken(data.token)
+                    setEmail(data.user?.email || userEmail)
+                    setId(data.user?.id || Date.now().toString())
+                    console.log('DEBUG UserContext register recibido token:', data.token)
+                }
                 return { success: true, message: data.message }
             } else {
                 return { success: false, message: data.message || "Error al registrar usuario." }
@@ -92,6 +104,7 @@ export const UserProvider = ({ children }) => {
                 setToken(data.token)
                 setEmail(data.user.email)
                 setId(data.user.id || Date.now().toString())
+                console.log('DEBUG UserContext login recibido token:', data.token)
                 return { success: true }
             } else {
                 return { success: false, message: data.message }

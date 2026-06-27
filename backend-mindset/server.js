@@ -3,18 +3,96 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
+import nodemailer from 'nodemailer';
+import multer from 'multer';
 
 dotenv.config();
+
+console.log('DEBUG: backend server starting');
+console.log('DEBUG: process.cwd()', process.cwd());
+console.log('DEBUG: module URL', import.meta.url);
+console.log('DEBUG: PAYPAL_CLIENT_ID present', !!process.env.PAYPAL_CLIENT_ID);
+console.log('DEBUG: JWT_SECRET present', !!process.env.JWT_SECRET);
+
+// Ensure `fetch` is available in Node.js environments that don't provide it
+(async () => {
+    if (typeof fetch === 'undefined') {
+        try {
+            const fetchModule = await import('node-fetch');
+            globalThis.fetch = fetchModule.default;
+            console.log('DEBUG: polyfilled global.fetch with node-fetch');
+        } catch (err) {
+            console.error('ERROR: Failed to polyfill fetch. Install node-fetch or use Node 18+.', err);
+        }
+    } else {
+        console.log('DEBUG: global.fetch is available');
+    }
+})();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
+const SMTP_PORT = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587;
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
+const NOTIFICATION_EMAIL = process.env.NOTIFICATION_EMAIL || 'osmey009@gmail.com';
+
+let mailTransporter;
+if (SMTP_USER && SMTP_PASS) {
+    mailTransporter = nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: SMTP_PORT,
+        secure: SMTP_PORT === 465,
+        auth: {
+            user: SMTP_USER,
+            pass: SMTP_PASS
+        }
+    });
+} else {
+    console.warn('WARNING: SMTP_USER o SMTP_PASS no están definidos en el .env. No se podrá enviar correo.');
+}
 
 // Middleware
-// NOTA: Si experimentas problemas de CORS en el navegador, cambia cors() por:
-// app.use(cors({ origin: 'http://localhost:5173' })); // Pon aquí la URL de tu frontend
-app.use(cors());
+// Permite el uso de cabeceras Authorization desde el frontend de Vite
+app.use(cors({
+    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use((req, res, next) => {
+    console.log('DEBUG REQUEST:', req.method, req.path);
+    next();
+});
+
+// Middleware para verificar JWT en rutas privadas
+function verificarToken(req, res, next) {
+    const authHeader = req.headers?.authorization;
+    console.log('DEBUG verifyToken authHeader:', authHeader);
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ success: false, message: 'Token de autorización faltante o inválido.' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    if (!process.env.JWT_SECRET) {
+        console.error('JWT_SECRET no está definido en el .env');
+        return res.status(500).json({ success: false, message: 'Configuración del servidor incompleta.' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        console.log('DEBUG verifyToken decoded:', decoded);
+        req.user = decoded;
+        next();
+    } catch (error) {
+        console.error('Error verificando token JWT:', error);
+        return res.status(401).json({ success: false, message: 'Token inválido o expirado.' });
+    }
+}
 
 // Base de datos temporal en memoria (un array de objetos)
 const users = [];
@@ -25,11 +103,19 @@ const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
 const PAYPAL_API = 'https://api-m.sandbox.paypal.com'; // Entorno Sandbox (Pruebas)
 
+// Show a masked client id for debugging (won't print the secret)
+if (PAYPAL_CLIENT_ID) {
+    const id = PAYPAL_CLIENT_ID.trim();
+    const masked = `${id.slice(0,6)}...${id.slice(-4)}`;
+    console.log('DEBUG: PAYPAL_CLIENT_ID (masked):', masked);
+}
+
 // Función auxiliar para obtener el token de acceso de PayPal de forma segura
 async function generateAccessToken() {
     if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
         throw new Error("Faltan las credenciales PAYPAL_CLIENT_ID o PAYPAL_CLIENT_SECRET en el .env");
     }
+
     const auth = Buffer.from(`${PAYPAL_CLIENT_ID.trim()}:${PAYPAL_CLIENT_SECRET.trim()}`).toString("base64");
     const response = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
         method: "POST",
@@ -39,8 +125,19 @@ async function generateAccessToken() {
             "Content-Type": "application/x-www-form-urlencoded"
         }
     });
-    
+
     const data = await response.json();
+
+    if (!response.ok) {
+        console.error("Error autenticando contra PayPal:", response.status, data);
+        throw new Error("No se pudo obtener el token de acceso de PayPal. Revisa tus credenciales de sandbox.");
+    }
+
+    if (!data.access_token) {
+        console.error("PayPal no devolvió access_token:", data);
+        throw new Error("PayPal no devolvió un access_token válido.");
+    }
+
     return data.access_token;
 }
 
@@ -62,7 +159,9 @@ app.post('/api/auth/register', (req, res) => {
     const newUser = { id: Date.now(), email, password, name, apellido, edad, provider: 'manual' };
     users.push(newUser);
 
-    res.status(201).json({ success: true, message: "Usuario registrado con éxito." });
+    const token = jwt.sign({ id: newUser.id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '2h' });
+
+    res.status(201).json({ success: true, message: "Usuario registrado con éxito.", token, user: { id: newUser.id, name: newUser.name, email: newUser.email } });
 });
 
 // ─── 2. AUTENTICACIÓN MANUAL: LOGIN ─────────────────────────────────────────
@@ -143,6 +242,7 @@ app.post('/api/auth/google', async (req, res) => {
 
 // Endpoint para decirle a PayPal cuánto cobrar y obtener el Order ID
 app.post('/api/paypal/create-order', async (req, res) => {
+    console.log('PayPal create-order request auth header:', req.headers.authorization);
     try {
         const { totalUSD, totalCLP, cartItems } = req.body; 
 
@@ -189,7 +289,7 @@ app.post('/api/paypal/create-order', async (req, res) => {
 });
 
 // Endpoint para confirmar que el usuario pagó y guardar la orden en tu backend
-app.post('/api/paypal/capture-order', async (req, res) => {
+app.post('/api/paypal/capture-order', verificarToken, async (req, res) => {
     try {
         const { orderID, cartItems, totalCLP } = req.body; 
 
@@ -263,6 +363,79 @@ app.post('/api/orders/checkout', (req, res) => {
     console.log("Nueva orden recibida en el backend:", newOrder);
 
     res.json({ success: true, message: "Comprobante recibido de forma exitosa en el servidor." });
+});
+
+app.post('/api/orders/transferencia', verificarToken, upload.single('comprobante'), async (req, res) => {
+    if (!mailTransporter) {
+        return res.status(500).json({ success: false, message: 'El servidor de correo no está configurado.' });
+    }
+
+    const file = req.file;
+    const { serviceName, servicePrice, total, cartItems, userEmail, userId } = req.body;
+
+    if (!file) {
+        return res.status(400).json({ success: false, message: 'Se requiere un comprobante de pago adjunto.' });
+    }
+
+    const clientEmail = userEmail || req.user?.email || 'No disponible';
+    const clientId = userId || req.user?.id || 'No disponible';
+    let parsedCartItems = [];
+
+    try {
+        parsedCartItems = cartItems ? JSON.parse(cartItems) : [];
+    } catch (error) {
+        parsedCartItems = [];
+    }
+
+    const subject = `Nueva transferencia recibida: ${serviceName || 'Servicio sin nombre'}`;
+    const html = `
+        <h2>Nuevo comprobante de transferencia</h2>
+        <p><strong>Cliente:</strong> ${clientEmail}</p>
+        <p><strong>ID de cliente:</strong> ${clientId}</p>
+        <p><strong>Servicio comprado:</strong> ${serviceName || 'No especificado'}</p>
+        <p><strong>Monto total:</strong> ${total || 'No especificado'}</p>
+        <p><strong>Precio del servicio:</strong> ${servicePrice || 'No especificado'}</p>
+        <p><strong>Carrito:</strong></p>
+        <pre>${JSON.stringify(parsedCartItems, null, 2)}</pre>
+        <p>Adjunto se incluye la captura de pago enviada por el cliente.</p>
+    `;
+
+    const mailOptions = {
+        from: SMTP_USER,
+        to: NOTIFICATION_EMAIL,
+        subject,
+        html,
+        attachments: [
+            {
+                filename: file.originalname,
+                content: file.buffer
+            }
+        ]
+    };
+
+    try {
+        await mailTransporter.sendMail(mailOptions);
+
+        const newOrder = {
+            id: `ORD-${Date.now()}`,
+            method: 'transferencia',
+            reference: file.originalname,
+            cartItems: parsedCartItems,
+            total,
+            status: 'pending',
+            userEmail: clientEmail,
+            userId: clientId,
+            serviceName: serviceName || 'No especificado'
+        };
+
+        orders.push(newOrder);
+        console.log('✅ Transferencia recibida y correo enviado:', newOrder);
+
+        res.json({ success: true, message: 'Comprobante enviado por correo correctamente.' });
+    } catch (error) {
+        console.error('Error enviando correo de transferencia:', error);
+        res.status(500).json({ success: false, message: 'No se pudo enviar el correo con el comprobante.' });
+    }
 });
 
 // Iniciar servidor

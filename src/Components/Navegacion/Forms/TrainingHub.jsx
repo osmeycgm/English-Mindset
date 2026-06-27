@@ -1,26 +1,33 @@
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useUser } from "../../Context/UserContext" 
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom" //
 
 const TrainingHub = () => {
-    const { token, user } = useUser()
+    const { token, user } = useUser() //
+    const navigate = useNavigate() // 🔥 Instanciamos navigate para controlar la redirección
 
-    // SIMULACIÓN DE ACCESO (Cambiar a tu lógica real en producción)
-    const tieneCursoPagado = token ? true : false; 
-    const linkGoogleMeet = "https://meet.google.com/abc-defg-hij"; 
+    // 💡 INTERRUPTOR DE ACCESO REAL: 
+    // En producción esto debe ser: const tieneCursoPagado = user?.hasActivePlan || false;
+    // Por ahora lo forzamos a 'true' para que puedas ver el mapa y programar.
+    const tieneCursoPagado = true; //
+    const linkGoogleMeet = "https://meet.google.com/abc-defg-hij"; //
 
-    // ESTADOS DE NAVEGACIÓN (macro, micro, unit-detail)
-    const [vistaActual, setVistaActual] = useState("macro") 
-    const [nivelSeleccionado, setNivelSeleccionado] = useState(null)
-    const [unidadSeleccionada, setUnidadSeleccionada] = useState(null)
+    // ESTADOS DE NAVEGACIÓN (macro, micro, unit-detail, exam)
+    const [vistaActual, setVistaActual] = useState("macro") //
+    const [nivelSeleccionado, setNivelSeleccionado] = useState(null) //
+    const [unidadSeleccionada, setUnidadSeleccionada] = useState(null) //
 
-    // DATOS DE LOS 4 NIVELES
+    // REF PARA EL CARRUSEL
+    const carouselRef = useRef(null) //
+
+    // ─── DATOS DE LOS NIVELES (AHORA CON STAGE 0 INCLUIDO) ────────────────
     const nivelesAcademicos = [
+        { id: 0, name: "Stage 00: Mindset Assessment", duration: "30 Minutos", desc: "Test de nivelación interactivo. Descubre tu punto de partida exacto.", status: "active", isExam: true },
         { id: 1, name: "Stage 01: Foundations", duration: "4-6 Meses", desc: "Rompe la traducción mental y automatiza tus respuestas.", status: "active" },
         { id: 2, name: "Stage 02: Fluency Explorer", duration: "4-6 Meses", desc: "Adquiere agilidad comercial, debate y conecta ideas complejas.", status: "locked" },
         { id: 3, name: "Stage 03: Professional Mastery", duration: "4-6 Meses", desc: "Modismos avanzados, negociación y alta complejidad corporativa.", status: "locked" },
         { id: 4, name: "Stage 04: Native Expansion", duration: "4-6 Meses", desc: "Inmersión cultural absoluta a nivel C1/C2.", status: "locked" },
-    ]
+    ] //
 
     // 16 UNIDADES ESTILO NETFLIX (Con imágenes ilustrativas abstractas)
     const unidadesMock = Array.from({ length: 16 }, (_, i) => ({
@@ -35,28 +42,44 @@ const TrainingHub = () => {
             "1618005182384-a83a8bd57fbe", "1634017839464-5c339ebe3cb4", 
             "1614741118887-7a4ee193a5fa", "1579783900882-c0d3dad7b119"
         ][i % 4]}?auto=format&fit=crop&w=600&q=80`
-    }))
+    })) //
 
     const actividadesMock = [
         { id: 1, type: "video", title: "Masterclass: Estrategias del Día", duration: "12 min" },
         { id: 2, type: "pdf", title: "Cambridge Interactive Canvas (Tu Sello)", duration: "25 min" },
         { id: 3, type: "audio", title: "Audio Drill: Pronunciación Nativa Sincronizada", duration: "15 min" },
         { id: 4, type: "quiz", title: "Mindset Check: Desafío de Retención", duration: "8 min" },
-    ]
+    ] //
 
     const handleEntrarNivel = (nivel) => {
-        if (nivel.status === "locked") return;
-        setNivelSeleccionado(nivel)
-        setVistaActual("micro")
+        if (nivel.status === "locked") return; //
+        
+        // Si es el examen de nivelación, lo enviamos a su vista dedicada
+        if (nivel.isExam) {
+            setVistaActual("exam"); //
+            return; //
+        }
+
+        setNivelSeleccionado(nivel) //
+        setVistaActual("micro") //
     }
 
     const handleEntrarUnidad = (unidad) => {
-        setUnidadSeleccionada(unidad)
-        setVistaActual("unit-detail")
+        setUnidadSeleccionada(unidad) //
+        setVistaActual("unit-detail") //
+    }
+
+    // FUNCIÓN DE DESPLAZAMIENTO DEL CARRUSEL
+    const scrollCarousel = (direction) => {
+        if (carouselRef.current) { //
+            const { current } = carouselRef; //
+            const scrollAmount = direction === "left" ? -284 : 284; //
+            current.scrollBy({ left: scrollAmount, behavior: "smooth" }); //
+        }
     }
 
     // ─── CASO 1: INVITADO ──────────────────────────────────────────────────
-    if (!token) {
+    if (!token) { //
         return (
             <div className="aesthetic-bg d-flex align-items-center justify-content-center p-4">
                 <div className="glass-card text-center p-5" style={{ maxWidth: "34rem" }}>
@@ -72,11 +95,11 @@ const TrainingHub = () => {
                     </Link>
                 </div>
             </div>
-        )
+        ) //
     }
 
-    // ─── CASO 2: LOGGEADO SIN PLAN ─────────────────────────────────────────
-    if (token && !tieneCursoPagado) {
+    // ─── CASO 2: LOGGEADO SIN PLAN (AQUÍ ESTÁ EL BLOQUEO REAL) ─────────────
+    if (token && !tieneCursoPagado) { //
         return (
             <div className="aesthetic-bg d-flex align-items-center justify-content-center p-4">
                 <div className="glass-card text-center p-5" style={{ maxWidth: "34rem" }}>
@@ -92,7 +115,7 @@ const TrainingHub = () => {
                     </Link>
                 </div>
             </div>
-        )
+        ) //
     }
 
     // ─── CASO 3: ALUMNO ACTIVO ─────────────────────────────────────────────
@@ -111,7 +134,7 @@ const TrainingHub = () => {
                         {/* Contenedor del Mapa del Tesoro */}
                         <div className="position-relative d-flex flex-column align-items-center gap-5 my-5">
                             
-                            {/* SVG Línea Curva Fina Conectora (Estilo Mapa del Tesoro) */}
+                            {/* SVG Línea Curva Fina Conectora */}
                             <svg className="d-none d-md-block position-absolute w-100 h-100" style={{ top: 0, left: 0, pointerEvents: "none", zIndex: 0 }}>
                                 <path 
                                     d="M 600, 50 Q 250, 180 600, 320 T 600, 600 T 600, 880" 
@@ -124,8 +147,9 @@ const TrainingHub = () => {
                             </svg>
 
                             {nivelesAcademicos.map((nivel, idx) => {
-                                const esPar = idx % 2 === 0;
-                                const estaBloqueado = nivel.status === "locked";
+                                const esPar = idx % 2 === 0; //
+                                const estaBloqueado = nivel.status === "locked"; //
+                                const isExam = nivel.isExam; //
 
                                 return (
                                     <div 
@@ -134,16 +158,23 @@ const TrainingHub = () => {
                                         style={{ zIndex: 2 }}
                                     >
                                         <div 
-                                            className={`island-node text-center p-4 ${estaBloqueado ? "locked-node" : "active-node"}`}
+                                            className={`island-node text-center p-4 ${estaBloqueado ? "locked-node" : "active-node"} ${isExam ? "exam-node" : ""}`}
                                             onClick={() => handleEntrarNivel(nivel)}
                                         >
-                                            <div className="node-badge">{nivel.duration}</div>
-                                            <h4 className="fw-bold text-white mb-2">{nivel.name}</h4>
+                                            {/* Ícono especial si es examen */}
+                                            {isExam && (
+                                                <div className="position-absolute top-0 start-50 translate-middle bg-cyan rounded-circle p-2 shadow-glow" style={{ marginTop: "-10px" }}>
+                                                    <i className="bi bi-controller fs-4 text-dark" />
+                                                </div>
+                                            )}
+
+                                            <div className="node-badge" style={{ backgroundColor: isExam ? "#f59e0b" : "#0284c7" }}>{nivel.duration}</div>
+                                            <h4 className={`fw-bold mb-2 ${isExam ? "text-warning" : "text-white"}`}>{nivel.name}</h4>
                                             <p className="text-blue-200 small m-0 px-2">{nivel.desc}</p>
                                             
                                             {!estaBloqueado ? (
                                                 <div className="node-action mt-3 small fw-bold text-cyan">
-                                                    Entrar a la Isla <i className="bi bi-arrow-right ms-1" />
+                                                    {isExam ? "Iniciar Examen" : "Entrar a la Isla"} <i className="bi bi-arrow-right ms-1" />
                                                 </div>
                                             ) : (
                                                 <div className="mt-3 text-muted small">
@@ -158,6 +189,33 @@ const TrainingHub = () => {
                     </div>
                 )}
 
+                {/* 🎮 VISTA EXAMEN: STAGE 0 (ESTILO KAHOOT) */}
+                {vistaActual === "exam" && (
+                    <div className="animate__animated animate__fadeInUp position-relative py-4">
+                        <button className="btn-back mb-4" onClick={() => setVistaActual("macro")}>
+                            <i className="bi bi-chevron-left" /> Volver al Mapa
+                        </button>
+
+                        <div className="d-flex align-items-center justify-content-center" style={{ minHeight: "50vh" }}>
+                            <div className="glass-card text-center p-5 w-100" style={{ maxWidth: "600px", borderTop: "4px solid #f59e0b" }}>
+                                <i className="bi bi-controller mb-3 d-block text-warning" style={{ fontSize: "4rem", textShadow: "0 0 20px rgba(245,158,11,0.5)" }} />
+                                <h2 className="fw-black text-white text-uppercase tracking-widest mb-2">Leveling Exam</h2>
+                                <p className="text-blue-200 mb-5">
+                                    Aquí montaremos la interfaz estilo Kahoot interactivo para evaluar tu nivel exacto. Asegúrate de tener audio activado y estar en un lugar tranquilo.
+                                </p>
+                                
+                                {/* 🔥 Se cambió la alerta por navigate a la ruta correspondiente */}
+                                <button 
+                                    className="btn btn-warning fw-bold py-3 px-5 rounded-pill shadow-glow text-dark fs-5 w-100" 
+                                    onClick={() => navigate("/testing0")}
+                                >
+                                    <i className="bi bi-play-fill me-2" /> Comenzar Test Ahora
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* 🎬 VISTA MICRO: CARRUSEL LATERAL ESTILO NETFLIX PREMIUM */}
                 {vistaActual === "micro" && (
                     <div className="animate__animated animate__fadeIn">
@@ -165,50 +223,76 @@ const TrainingHub = () => {
                             <i className="bi bi-chevron-left" /> Volver al Mapa
                         </button>
 
-                        {/* Banner de Bienvenida Premium */}
-                        <div className="glass-banner p-4 p-md-5 mb-5 d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-4">
-                            <div>
-                                <span className="badge-pill mb-2">Stage Activo</span>
-                                <h1 className="fw-bold text-white m-0">{nivelSeleccionado?.name}</h1>
-                                <p className="text-blue-200 m-0 mt-1">Selecciona una unidad expansiva para desplegar el contenido de trabajo interactivo.</p>
-                            </div>
-
-                            {/* Acceso Integrado a Sala Virtual */}
-                            <div className="meet-widget p-3 text-center">
-                                <div className="d-flex align-items-center justify-content-center gap-2 mb-2">
-                                    <span className="live-dot" />
-                                    <span className="small text-white tracking-widest fw-bold">SALA VIRTUAL DISPONIBLE</span>
+                        {/* BANNER PRINCIPAL Y ACCESO A SALA VIRTUAL (GOOGLE MEET) */}
+                        <div className="p-4 p-md-5 text-white rounded-3 mb-4 shadow" style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)", position: "relative", overflow: "hidden" }}>
+                            <div className="row align-items-center position-relative" style={{ zIndex: 2 }}>
+                                <div className="col-12 col-lg-8 text-center text-lg-start">
+                                    <span className="badge mb-2 px-3 py-1 rounded-pill" style={{ backgroundColor: "#0284c7" }}>Estás Entrenando</span>
+                                    <h1 className="fw-bold mb-2">{nivelSeleccionado?.name}</h1>
+                                    <p className="text-white-50 mb-0">Gestiona tus unidades de estudio autónomo de Cambridge abajo y asiste a tus clases presenciales sincronizadas.</p>
                                 </div>
-                                <a href={linkGoogleMeet} target="_blank" rel="noopener noreferrer" className="btn btn-meet">
-                                    <i className="bi bi-camera-video-fill me-2" /> Unirse a Clase Live
-                                </a>
+                                
+                                {/* CAJA INTEGRADA DE GOOGLE MEET */}
+                                <div className="col-12 col-lg-4 mt-4 mt-lg-0 text-center text-lg-end">
+                                    <div className="p-3 rounded-3 bg-white bg-opacity-10 backdrop-blur" style={{ border: "1px solid rgba(255,255,255,0.15)" }}>
+                                        <div className="d-flex align-items-center justify-content-center gap-2 mb-2">
+                                            <span className="position-relative d-flex h-3 w-3">
+                                                <span className="animate-ping position-absolute inline-flex h-100 w-100 rounded-circle bg-danger opacity-75" style={{ width: "10px", height: "10px", top: "6px" }}></span>
+                                                <span className="position-relative inline-flex rounded-circle bg-danger" style={{ width: "10px", height: "10px" }}></span>
+                                            </span>
+                                            <span className="small fw-bold text-uppercase tracking-wider text-white">Sala Virtual Activa</span>
+                                        </div>
+                                        <a 
+                                            href={linkGoogleMeet} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            className="btn btn-success w-100 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 py-2"
+                                            style={{ borderRadius: "10px" }}
+                                        >
+                                            <i className="bi bi-camera-video-fill" /> Entrar a Clase en Vivo
+                                        </a>
+                                        <span className="d-block text-white-50 mt-1" style={{ fontSize: "0.75rem" }}>Se abrirá en una nueva pestaña</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Slider Horizontal Estilo Netflix */}
+                        {/* Slider Horizontal Estilo Netflix con Botones de Exploración */}
                         <div className="netflix-section">
                             <h3 className="fw-bold text-white mb-4 tracking-tight">
                                 <i className="bi bi-grid-3x3-gap-fill me-2 text-cyan" /> Unidades Disponibles
                             </h3>
                             
-                            <div className="netflix-row">
-                                {unidadesMock.map((unidad) => (
-                                    <div 
-                                        key={unidad.id} 
-                                        className="netflix-card"
-                                        onClick={() => handleEntrarUnidad(unidad)}
-                                    >
-                                        <div className="netflix-card-img-wrapper">
-                                            <img src={unidad.image} alt={unidad.title} className="netflix-card-img" />
-                                            <div className="netflix-card-overlay" />
+                            <div className="position-relative">
+                                {/* Flecha Izquierda */}
+                                <button className="carousel-control left d-none d-md-flex" onClick={() => scrollCarousel('left')}>
+                                    <i className="bi bi-chevron-left fs-4" />
+                                </button>
+
+                                <div className="netflix-row" ref={carouselRef}>
+                                    {unidadesMock.map((unidad) => (
+                                        <div 
+                                            key={unidad.id} 
+                                            className="netflix-card"
+                                            onClick={() => handleEntrarUnidad(unidad)}
+                                        >
+                                            <div className="netflix-card-img-wrapper">
+                                                <img src={unidad.image} alt={unidad.title} className="netflix-card-img" />
+                                                <div className="netflix-card-overlay" />
+                                            </div>
+                                            <div className="netflix-card-body">
+                                                <h4 className="fw-black text-white m-0">{unidad.title}</h4>
+                                                <p className="text-cyan text-uppercase fw-bold tracking-wider m-0 small">{unidad.subtitle}</p>
+                                                <span className="netflix-card-meta">{unidad.duration}</span>
+                                            </div>
                                         </div>
-                                        <div className="netflix-card-body">
-                                            <h4 className="fw-black text-white m-0">{unidad.title}</h4>
-                                            <p className="text-cyan text-uppercase fw-bold tracking-wider m-0 small">{unidad.subtitle}</p>
-                                            <span className="netflix-card-meta">{unidad.duration}</span>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
+
+                                {/* Flecha Derecha */}
+                                <button className="carousel-control right d-none d-md-flex" onClick={() => scrollCarousel('right')}>
+                                    <i className="bi bi-chevron-right fs-4" />
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -258,7 +342,7 @@ const TrainingHub = () => {
 
             {/* ─── INYECCIÓN DE ESTILOS CSS AESTHETIC — NO TOCAR ──────────────────── */}
             <style>{`
-                /* Fondo Base de la Marca (Inspirado en el header de image_2cfe82.jpg) */
+                /* Fondo Base de la Marca */
                 .aesthetic-bg {
                     background: radial-gradient(circle at 50% 0%, #1e3a8a 0%, #0b1329 70%, #050a14 100%);
                     min-height: 100vh;
@@ -269,6 +353,13 @@ const TrainingHub = () => {
                 .text-cyan { color: #38bdf8 !important; }
                 .text-blue-200 { color: #cbd5e1 !important; }
                 .fw-black { font-weight: 900; }
+                .bg-cyan { background-color: #38bdf8 !important; }
+                
+                /* Clases Utilitarias para Banner Meet */
+                .backdrop-blur { backdrop-filter: blur(12px); }
+                @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+                .animate-ping { animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
+                .shadow-glow { box-shadow: 0 0 20px rgba(56, 189, 248, 0.5); }
                 
                 /* Estilo de Tarjetas de Cristal (Glassmorphism) */
                 .glass-card {
@@ -310,6 +401,13 @@ const TrainingHub = () => {
                     border-color: #38bdf8;
                     box-shadow: 0 10px 30px rgba(56, 189, 248, 0.25);
                 }
+                .exam-node {
+                    border-color: rgba(245, 158, 11, 0.4);
+                }
+                .exam-node:hover {
+                    border-color: #f59e0b;
+                    box-shadow: 0 10px 30px rgba(245, 158, 11, 0.25);
+                }
                 .locked-node {
                     opacity: 0.4;
                     cursor: not-allowed;
@@ -326,49 +424,7 @@ const TrainingHub = () => {
                     font-weight: bold;
                 }
 
-                /* Banner Microventana */
-                .glass-banner {
-                    background: linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%);
-                    backdrop-filter: blur(12px);
-                    border-radius: 20px;
-                    border: 1px solid rgba(56, 189, 248, 0.1);
-                }
-                .badge-pill {
-                    background: rgba(56, 189, 248, 0.2);
-                    color: #38bdf8;
-                    padding: 4px 12px;
-                    border-radius: 50px;
-                    font-size: 0.75rem;
-                    font-weight: bold;
-                    display: inline-block;
-                }
-
-                /* Widget Google Meet */
-                .meet-widget {
-                    background: rgba(255, 255, 255, 0.03);
-                    border: 1px solid rgba(255, 255, 255, 0.08);
-                    border-radius: 14px;
-                    min-width: 240px;
-                }
-                .btn-meet {
-                    background: #10b981;
-                    color: white;
-                    font-weight: bold;
-                    border-radius: 8px;
-                    width: 100%;
-                    transition: 0.2s;
-                }
-                .btn-meet:hover { background: #059669; color: white; }
-                .live-dot {
-                    width: 8px;
-                    height: 8px;
-                    background-color: #ef4444;
-                    border-radius: 50%;
-                    display: inline-block;
-                    animation: blink 1.5s infinite;
-                }
-
-                /* 🎬 ESTRUCTURA NETFLIX CAROUSEL (MÁS GRANDE Y VERTICAL) */
+                /* 🎬 ESTRUCTURA NETFLIX CAROUSEL */
                 .netflix-section {
                     position: relative;
                     padding: 10px 0;
@@ -380,12 +436,13 @@ const TrainingHub = () => {
                     padding-bottom: 25px;
                     padding-top: 10px;
                     scrollbar-width: none;
+                    scroll-behavior: smooth;
                 }
                 .netflix-row::-webkit-scrollbar { display: none; }
                 
                 .netflix-card {
                     flex-shrink: 0;
-                    width: 260px; /* Tamaño de tarjeta más grande vertical */
+                    width: 260px;
                     height: 380px;
                     background: #1e293b;
                     border-radius: 16px;
@@ -396,7 +453,6 @@ const TrainingHub = () => {
                     box-shadow: 0 10px 20px rgba(0,0,0,0.3);
                 }
                 
-                /* Animación Expandible Estilo Netflix */
                 .netflix-card:hover {
                     transform: scale(1.06) translateY(-8px);
                     box-shadow: 0 20px 35px rgba(56, 189, 248, 0.35);
@@ -427,7 +483,7 @@ const TrainingHub = () => {
                     padding: 16px;
                     height: 35%;
                     display: flex;
-                    flex-column;
+                    flex-direction: column;
                     justify-content: space-between;
                 }
                 .netflix-card-meta {
@@ -435,6 +491,38 @@ const TrainingHub = () => {
                     color: #94a3b8;
                     display: block;
                     margin-top: 8px;
+                }
+
+                /* ◀️ ▶️ BOTONES DE CONTROL LATERAL (CARRUSEL) */
+                .carousel-control {
+                    position: absolute;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    z-index: 20;
+                    background: rgba(15, 23, 42, 0.8);
+                    border: 1px solid rgba(56, 189, 248, 0.3);
+                    color: #ffffff;
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 50%;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+                    backdrop-filter: blur(8px);
+                }
+                .carousel-control:hover {
+                    background: rgba(56, 189, 248, 0.9);
+                    border-color: #38bdf8;
+                    transform: translateY(-50%) scale(1.15);
+                    box-shadow: 0 10px 30px rgba(56, 189, 248, 0.4);
+                }
+                .carousel-control.left {
+                    left: -20px;
+                }
+                .carousel-control.right {
+                    right: -20px;
                 }
 
                 /* Tiras de Actividades Internas */
@@ -473,12 +561,6 @@ const TrainingHub = () => {
                     transition: 0.2s;
                 }
                 .btn-back:hover { color: #ffffff; transform: translateX(-2px); }
-
-                @keyframes blink {
-                    0% { opacity: 0.3; }
-                    50% { opacity: 1; }
-                    100% { opacity: 0.3; }
-                }
             `}</style>
         </div>
     )

@@ -7,7 +7,7 @@ import { jwtDecode } from "jwt-decode";
 
 const Cart = () => {
     const { cart, setCart, total } = useCart()
-    const { token, register, login, loginWithGoogle } = useUser()
+    const { token, email, id, register, login, loginWithGoogle } = useUser()
     const navigate = useNavigate()
 
     const selectedItem = cart[0]
@@ -16,6 +16,7 @@ const Cart = () => {
     const [isLoginView, setIsLoginView] = useState(false)
     const [formData, setFormData] = useState({ name: "", apellido: "", edad: "", email: "", password: "", confirmar: "" })
     const [loading, setLoading] = useState(false)
+    const [transferLoading, setTransferLoading] = useState(false)
     const [mensaje, setMensaje] = useState("")
     const [tipoMensaje, setTipoMensaje] = useState("")
 
@@ -54,81 +55,105 @@ const Cart = () => {
         ];
     }, [selectedItem]);
 
-   // ─── EFECTO PARA EL SDK DE PAYPAL ──────────────────────────────────────────
+// ─── EFECTO PARA EL SDK DE PAYPAL ──────────────────────────────────────────
 useEffect(() => {
-        const API_URL = "http://localhost:5000/api"; 
+    const API_URL = "http://localhost:5000/api"
 
-        if (metodoSeleccionado === "paypal" && window.paypal) {
-            if (paypalRef.current) paypalRef.current.innerHTML = "";
+    if (metodoSeleccionado !== "paypal") return
 
-            window.paypal.Buttons({
-                // PASO 1: Crear la orden
-                createOrder: async () => {
-                    try {
-                        const totalCLP = total();
-                        const totalUSD = (totalCLP / 950).toFixed(2); // Ajusta la tasa de cambio según necesites
+    // Espera activa hasta que window.paypal esté disponible
+    const waitForPayPal = setInterval(() => {
+        if (!window.paypal) return  // ← sigue esperando si no cargó aún
+        clearInterval(waitForPayPal) // ← ya cargó, detiene el intervalo
 
-                        const response = await fetch(`${API_URL}/paypal/create-order`, {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                "Authorization": `Bearer ${token}` 
-                            },
-                            // Aseguramos enviar lo que el backend espera
-                            body: JSON.stringify({ 
-                                cartItems: cart,
-                                totalCLP: totalCLP,
-                                totalUSD: totalUSD
-                            }) 
-                        });
+        // Limpia el contenedor antes de montar los botones
+        if (paypalRef.current) paypalRef.current.innerHTML = ""
 
-                        const data = await response.json();
-                        if (!response.ok) throw new Error(data.message || "Error al crear la orden en el servidor.");
+        window.paypal.Buttons({
 
-                        return data.id; 
-                    } catch (error) {
-                        console.error("Error iniciando flujo de PayPal:", error);
-                        alert(`Error de inicialización: ${error.message}`);
-                    }
-                },
-
-                // PASO 2: Capturar el pago
-                onApprove: async (data, actions) => {
-                    try {
-                        const response = await fetch(`${API_URL}/paypal/capture-order`, {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                "Authorization": `Bearer ${token}`
-                            },
-                            body: JSON.stringify({ 
-                                orderID: data.orderID, 
-                                cartItems: cart,
-                                totalCLP: total()
-                            }) 
-                        });
-
-                        const result = await response.json();
-                        if (!response.ok) throw new Error(result.message || "El pago no pudo ser capturado.");
-
-                        alert("¡Pago procesado y verificado con éxito!");
-                        setCart([]);
-                        setMetodoSeleccionado(null);
-                        navigate("/profile");
-
-                    } catch (error) {
-                        console.error("Error al capturar el pago:", error);
-                        alert(`Error al confirmar el pago: ${error.message}`);
-                    }
-                },
-
-                onError: (err) => {
-                    console.error("PayPal Error crítico en pasarela: ", err);
-                    alert("La ventana de PayPal se cerró o experimentó un problema de conexión.");
+            createOrder: async () => {
+                console.log("Token que se envía:", token)
+                if (!token) {
+                    throw new Error('Debes iniciar sesión antes de pagar con PayPal.');
                 }
-            }).render(paypalRef.current);
-        }
-    }, [metodoSeleccionado, cart, token, setCart, navigate, total]);
+
+                try {
+                    const totalCLP = total()
+                    const totalUSD = (totalCLP / 950).toFixed(2)
+
+                    const response = await fetch(`${API_URL}/paypal/create-order`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            cartItems: cart,
+                            totalCLP,
+                            totalUSD
+                        })
+                    })
+
+                    const data = await response.json()
+                    if (!response.ok) throw new Error(data.message || "Error al crear la orden.")
+
+                    return data.id  // ← CRUCIAL: retorna el ID directamente
+
+                } catch (error) {
+                    console.error("Error en createOrder:", error)
+                    alert(`Error al iniciar pago: ${error.message}`)
+                    throw error
+                }
+            },
+
+            onApprove: async (data, actions) => {
+                try {
+                    const response = await fetch(`${API_URL}/paypal/capture-order`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            orderID: data.orderID,
+                            cartItems: cart,
+                            totalCLP: total()
+                        })
+                    })
+
+                    const result = await response.json()
+
+                    // ← Manejo de tarjeta rechazada — deja reintentar sin cerrar PayPal
+                    if (result.details?.details?.[0]?.issue === "INSTRUMENT_DECLINED") {
+                        return actions.restart()
+                    }
+
+                    if (!response.ok) throw new Error(result.message || "Error al capturar el pago.")
+
+                    alert("¡Pago procesado con éxito! 🎉")
+                    setCart([])
+                    setMetodoSeleccionado(null)
+                    navigate("/profile")
+
+                } catch (error) {
+                    console.error("Error en onApprove:", error)
+                    alert(`Error al confirmar el pago: ${error.message}`)
+                }
+            },
+
+            onError: (err) => {
+                console.error("PayPal Error:", err)
+                alert("Hubo un problema con PayPal. Intenta de nuevo.")
+            }
+
+        }).render(paypalRef.current)
+
+    }, 300) // revisa cada 300ms si window.paypal ya cargó
+
+    // Limpieza: si el usuario cambia de método antes de que cargue, cancela el intervalo
+    return () => clearInterval(waitForPayPal)
+
+}, [metodoSeleccionado, cart, token, total])
     // ─── MANEJADORES DE ENTRADAS ───────────────────────────────────────────────
     const handleInputChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -205,23 +230,70 @@ useEffect(() => {
     }
 
     // ─── MANEJADOR TRANSFERENCIA MANUAL ────────────────────────────────────────
-    const handleTransferSubmit = (e) => {
-    e.preventDefault();
-    
-    // 1. Validamos que el archivo exista (sin usar .trim())
-    if (!transferRef) {
-        alert("Por favor selecciona la foto de tu comprobante.");
-        return;
+    const handleTransferSubmit = async (e) => {
+        e.preventDefault();
+
+        const authToken = token || localStorage.getItem('em_token');
+
+        if (!authToken) {
+            alert('Debes iniciar sesión antes de enviar un comprobante. Inicia sesión o regístrate para continuar.');
+            return;
+        }
+
+        if (!transferRef) {
+            alert('Por favor selecciona la foto de tu comprobante.');
+            return;
+        }
+
+        setTransferLoading(true);
+
+        try {
+            console.log('handleTransferSubmit token:', token, 'fallback token:', authToken);
+            const formDataTransfer = new FormData();
+            formDataTransfer.append('comprobante', transferRef);
+            formDataTransfer.append('serviceName', selectedItem?.name || 'Servicio no especificado');
+            formDataTransfer.append('servicePrice', selectedItem?.price?.toString() || '0');
+            formDataTransfer.append('total', total().toString());
+            formDataTransfer.append('cartItems', JSON.stringify(cart));
+            formDataTransfer.append('userEmail', email || '');
+            formDataTransfer.append('userId', id || '');
+
+            const response = await fetch('http://localhost:5000/api/orders/transferencia', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${authToken}`
+                },
+                body: formDataTransfer
+            });
+
+            const text = await response.text();
+            let data = null;
+            try {
+                data = JSON.parse(text);
+            } catch (err) {
+                console.warn('Response no es JSON:', text);
+            }
+
+            if (!response.ok) {
+                const errorMessage = data?.message || text || 'Error enviando comprobante de transferencia.';
+                if (response.status === 401) {
+                    throw new Error('Token inválido o expirado. Inicia sesión nuevamente antes de enviar el comprobante.');
+                }
+                throw new Error(errorMessage);
+            }
+
+            alert('Comprobante de transferencia enviado con éxito. Te notificaremos cuando se confirme el pago.');
+            setCart([]);
+            setTransferRef(null);
+            setMetodoSeleccionado(null);
+            navigate('/profile');
+        } catch (error) {
+            console.error('Error en handleTransferSubmit:', error);
+            alert(`No se pudo enviar el comprobante: ${error.message}`);
+        } finally {
+            setTransferLoading(false);
+        }
     }
-    
-    // 2. Usamos 'transferRef.name' para mostrar el nombre del archivo real (.jpg, .png, etc.)
-    alert(`Comprobante de transferencia recibido (${transferRef.name}).\nValidaremos los fondos en nuestra cuenta y tu plan se activará en breve.`);
-    
-    setCart([]);
-    setTransferRef(null); // 3. Reseteamos a null porque ahora almacena un archivo, no un ""
-    setMetodoSeleccionado(null);
-    navigate("/profile");
-}
 
     // ─── MANEJADOR CRYPTO MANUAL ──────────────────────────────────────────────
     const handleCryptoSubmit = (e) => {
@@ -453,8 +525,8 @@ useEffect(() => {
                                                                 style={{ borderRadius: "6px" }}
                                                             />
                                                         </div>
-                                                        <button type="submit" className="btn btn-primary w-100 fw-bold py-2 small" style={{ backgroundColor: "#1e3a8a", border: "none", borderRadius: "8px" }}>
-                                                            Confirmar Envío de Comprobante
+                                                        <button type="submit" className="btn btn-primary w-100 fw-bold py-2 small" disabled={transferLoading} style={{ backgroundColor: "#1e3a8a", border: "none", borderRadius: "8px" }}>
+                                                            {transferLoading ? 'Enviando comprobante...' : 'Confirmar Envío de Comprobante'}
                                                         </button>
                                                     </form>
                                                 </div>
@@ -503,7 +575,7 @@ useEffect(() => {
 
                                                         <div className="text-center my-3 p-2 bg-light rounded" style={{ display: "inline-block", width: "100%" }}>
                                                             <img
-                                                                src="/img/binance-qr.png"
+                                                                src="/public/img/binance.qr.png"
                                                                 alt="QR Depósito Binance"
                                                                 style={{ maxWidth: "150px", width: "100%", borderRadius: "8px" }}
                                                             />

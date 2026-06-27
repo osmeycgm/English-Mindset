@@ -18,6 +18,7 @@ import Planes from './Components/Navegacion/Forms/Planes'
 import Test from './Components/Navegacion/Forms/Test'
 import Testing from './Components/Navegacion/Forms/Testing'
 import TrainingHub from './Components/Navegacion/Forms/TrainingHub'
+import Testing0 from './Components/Navegacion/Forms/Testing0'
 
 function App() {
   const { token } = useUser()
@@ -34,6 +35,7 @@ function App() {
         {/* Rutas de Contenido Académico e Informativo */}
         <Route path="/planes" element={<Planes />} />
         <Route path="/Training Hub" element={<TrainingHub />} />
+        <Route path="/Testing0" element={<Testing0 />} />
         <Route path="/contacto" element={<ContactoPage />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/test" element={<Test />} />
