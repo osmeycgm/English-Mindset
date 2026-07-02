@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://github.com/osmeycgm/English-Mindset/",
+  "homepage": "https://osmeycgm.github.io/English-Mindset/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
