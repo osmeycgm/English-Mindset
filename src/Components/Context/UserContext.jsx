@@ -3,6 +3,13 @@ import { createContext, useState, useContext, useEffect } from "react"
 
 export const UserContext = createContext()
 
+// Configuración dinámica de la URL del Backend:
+// Si estás en local (localhost o 127.0.0.1) usa el puerto 5000 local; en producción usa Railway.
+const API_URL =
+    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        ? "http://127.0.0.1:5000"
+        : "https://english-mindset-production.up.railway.app"
+
 export const UserProvider = ({ children }) => {
     // Inicializamos los estados intentando leer el token de la sesión activa
     const [token, setToken] = useState(() => localStorage.getItem("em_token") || null)
@@ -32,7 +39,7 @@ export const UserProvider = ({ children }) => {
     // ==========================================
     const loginWithGoogle = async (userEmail, googleToken, mode) => {
         try {
-            const response = await fetch("http://127.0.0.1:5000/api/auth/google", {
+            const response = await fetch(`${API_URL}/api/auth/google`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email: userEmail, tokenGoogle: googleToken, mode })
@@ -62,7 +69,7 @@ export const UserProvider = ({ children }) => {
     // ==========================================
     const register = async (userEmail, password, name, apellido, edad) => {
         try {
-            const response = await fetch("http://127.0.0.1:5000/api/auth/register", {
+            const response = await fetch(`${API_URL}/api/auth/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email: userEmail, password, name, apellido, edad })
@@ -92,7 +99,7 @@ export const UserProvider = ({ children }) => {
     // ==========================================
     const login = async (userEmail, password) => {
         try {
-            const response = await fetch("http://127.0.0.1:5000/api/auth/login", {
+            const response = await fetch(`${API_URL}/api/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email: userEmail, password })

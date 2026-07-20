@@ -79,24 +79,77 @@ const TrainingHub = () => {
     }
 
     // ─── CASO 1: INVITADO ──────────────────────────────────────────────────
-    if (!token) { //
-        return (
-            <div className="aesthetic-bg d-flex align-items-center justify-content-center p-4">
-                <div className="glass-card text-center p-5" style={{ maxWidth: "34rem" }}>
-                    <div className="glow-icon mb-4">
-                        <i className="bi bi-rocket-takeoff text-cyan fs-1" />
-                    </div>
-                    <h2 className="fw-bold tracking-tight text-white mb-3">Expande tus Capacidades</h2>
-                    <p className="text-blue-200 mb-4 lh-lg">
-                        Aquí podrás tener el contenido guía y de trabajo estratégico para tu viaje hacia el dominio definitivo del inglés. Inicia sesión para desbloquear tu mapa.
-                    </p>
-                    <Link to="/cart" className="btn btn-neon w-100 py-3 fw-bold mb-3">
+   if (!token) {
+    return (
+        <div style={{
+            minHeight: "100vh",
+            background: "radial-gradient(circle at 50% 0%, #1e3a8a 0%, #0b1329 70%, #050a14 100%)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "40px 20px"
+        }}>
+            <div style={{
+                background: "rgba(15, 23, 42, 0.6)",
+                backdropFilter: "blur(16px)",
+                border: "1px solid rgba(56, 189, 248, 0.15)",
+                borderRadius: "24px",
+                boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
+                padding: "3rem",
+                maxWidth: "36rem",
+                width: "100%",
+                textAlign: "center"
+            }}>
+                {/* Ícono */}
+                <div style={{
+                    width: "70px", height: "70px", borderRadius: "50%",
+                    background: "linear-gradient(135deg, #1e3a8a 0%, #0284c7 100%)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    boxShadow: "0 0 25px rgba(2,132,199,0.45)",
+                    border: "1px solid rgba(56,189,248,0.2)",
+                    margin: "0 auto 1.5rem auto"
+                }}>
+                    <i className="bi bi-rocket-takeoff" style={{ fontSize: "1.8rem", color: "#38bdf8" }} />
+                </div>
+
+                <h2 style={{ fontWeight: 900, color: "#ffffff", marginBottom: "1rem" }}>
+                    Expande tus Capacidades
+                </h2>
+                <p style={{ color: "rgba(255,255,255,0.85)", marginBottom: "2rem", lineHeight: 1.7 }}>
+                    Aquí podrás tener el contenido guía y de trabajo estratégico para tu viaje hacia el dominio definitivo del inglés. Inicia sesión para desbloquear tu mapa de entrenamiento.
+                </p>
+
+                {/* Botones */}
+                <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
+                    <Link to="/login" style={{
+                        padding: "12px 28px",
+                        border: "2px solid rgba(255,255,255,0.4)",
+                        borderRadius: "12px",
+                        color: "#ffffff",
+                        fontWeight: 700,
+                        textDecoration: "none",
+                        backgroundColor: "transparent",
+                        transition: "0.3s"
+                    }}>
+                        Iniciar Sesión
+                    </Link>
+                    <Link to="/planes" style={{
+                        padding: "12px 28px",
+                        background: "linear-gradient(135deg, #2563eb 0%, #0284c7 100%)",
+                        borderRadius: "12px",
+                        color: "#ffffff",
+                        fontWeight: 700,
+                        textDecoration: "none",
+                        border: "none",
+                        boxShadow: "0 0 15px rgba(37,99,235,0.4)"
+                    }}>
                         Comenzar mi Viaje
                     </Link>
                 </div>
             </div>
-        ) //
-    }
+        </div>
+    )
+}
 
     // ─── CASO 2: LOGGEADO SIN PLAN (AQUÍ ESTÁ EL BLOQUEO REAL) ─────────────
     if (token && !tieneCursoPagado) { //
