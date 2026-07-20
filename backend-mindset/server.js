@@ -55,13 +55,20 @@ if (SMTP_USER && SMTP_PASS) {
     console.warn('WARNING: SMTP_USER o SMTP_PASS no están definidos en el .env. No se podrá enviar correo.');
 }
 
-// Middleware
-// Permite el uso de cabeceras Authorization desde el frontend de Vite
+// ─── CONFIGURACIÓN DE CORS CORREGIDA ─────────────────────────────────────────
+// Se incluyó el dominio de GitHub Pages para permitir peticiones en producción
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: [
+        'https://osmeycgm.github.io', // Tu Frontend en producción
+        'http://localhost:5173',      // Entorno de desarrollo local
+        'http://127.0.0.1:5173',    // Entorno de desarrollo local alternativo
+        'http://localhost:3000'
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
@@ -238,9 +245,7 @@ app.post('/api/auth/google', async (req, res) => {
     }
 });
 
-// ─── 4. ENDPOINTS DE PAYPAL (CREAR Y CAPTURAR ORDENES CORREGIDOS) ──────────────────────────
-
-// Endpoint para decirle a PayPal cuánto cobrar y obtener el Order ID
+// ─── 4. ENDPOINTS DE PAYPAL ──────────────────────────────────────────────────
 app.post('/api/paypal/create-order', async (req, res) => {
     console.log('PayPal create-order request auth header:', req.headers.authorization);
     try {
@@ -250,8 +255,6 @@ app.post('/api/paypal/create-order', async (req, res) => {
             return res.status(400).json({ success: false, message: "Falta el monto total en USD." });
         }
 
-        // SOLUCIÓN A ERRORES DE DECIMALES: Forzamos a que siempre tenga exactamente 2 decimales string (ej: "13.67")
-        // JavaScript flotante puede enviar números largos (ej: 13.6666666) que PayPal rechaza inmediatamente.
         const formattedTotal = Number(totalUSD).toFixed(2);
 
         const accessToken = await generateAccessToken();
@@ -280,7 +283,6 @@ app.post('/api/paypal/create-order', async (req, res) => {
             return res.status(response.status).json({ success: false, message: "Error en la API de PayPal", details: orderData });
         }
 
-        // El frontend necesita recibir estrictamente el ID en la raíz del JSON
         res.status(201).json({ id: orderData.id });
     } catch (error) {
         console.error("Error al crear orden de PayPal:", error);
@@ -288,7 +290,6 @@ app.post('/api/paypal/create-order', async (req, res) => {
     }
 });
 
-// Endpoint para confirmar que el usuario pagó y guardar la orden en tu backend
 app.post('/api/paypal/capture-order', verificarToken, async (req, res) => {
     try {
         const { orderID, cartItems, totalCLP } = req.body; 
@@ -308,24 +309,22 @@ app.post('/api/paypal/capture-order', verificarToken, async (req, res) => {
 
         const captureData = await response.json();
 
-        // MEJORA: PayPal puede devolver errores con estado 200 en la respuesta HTTP pero con detalles de fallo
         if (!response.ok || captureData.error || captureData.details) {
             console.error("Fallo en la captura de PayPal:", captureData);
             return res.status(400).json({ 
                 success: false, 
                 message: "No se pudo completar la captura del pago.", 
-                details: captureData // Le pasamos los detalles (como INSTRUMENT_DECLINED) al frontend
+                details: captureData 
             });
         }
 
         if (captureData.status === "COMPLETED") {
-            // Guardamos la compra de forma exitosa en tu array de órdenes local
             const newOrder = {
                 id: `ORD-${Date.now()}`,
                 method: "paypal",
                 reference: orderID, 
                 cartItems: cartItems || [],
-                total: totalCLP || 9990, // Guardamos el valor real en pesos chilenos que pagó
+                total: totalCLP || 9990,
                 status: 'approved'
             };
 
@@ -346,14 +345,14 @@ app.post('/api/paypal/capture-order', verificarToken, async (req, res) => {
     }
 });
 
-// ─── 5. ENDPOINTS DEL CARRITO (OTROS MÉTODOS MANUALES) ───────────────────────
+// ─── 5. ENDPOINTS DEL CARRITO Y TRANSFERENCIAS ───────────────────────────────
 app.post('/api/orders/checkout', (req, res) => {
     const { method, reference, cartItems, total } = req.body;
 
     const newOrder = {
         id: `ORD-${Date.now()}`,
-        method,         // "transferencia" o "crypto"
-        reference,      // Aquí llegará el TxID o datos de referencia
+        method,         
+        reference,      
         cartItems,
         total,
         status: 'pending'
@@ -440,5 +439,5 @@ app.post('/api/orders/transferencia', verificarToken, upload.single('comprobante
 
 // Iniciar servidor
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
 });
