@@ -235,7 +235,7 @@ export const headerImages = [
   "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1200&q=80",
   "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80",
   "https://plus.unsplash.com/premium_photo-1664104459228-067f1920ff90?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-  "https://scontent.fscl18-1.fna.fbcdn.net/v/t39.30808-6/708939217_36397401986517790_4720201197726137471_n.jpg?stp=dst-jpg_tt6&cstp=mx1024x559&ctp=s1024x559&_nc_cat=100&ccb=1-7&_nc_sid=127cfc&_nc_eui2=AeFj0jLYfbj3XRRr6ZJzlYGeAfXkTO5XO3cB9eRM7lc7dw0SelWYCHRUlWSYF0sS0Bfm1TqHZp_t-Gm73acrfU9s&_nc_ohc=QhIXWGOZ6aYQ7kNvwFXaeMT&_nc_oc=Adrfg6YE5nJ7bInmfKEDntolTH9MzwdW_Oimyd7FkoZJlcOyZlHsWRBdtWDqnyRAybo&_nc_zt=23&_nc_ht=scontent.fscl18-1.fna&_nc_gid=1wdoA0_cdabRxoW86qGMRA&_nc_ss=7b2a8&oh=00_Af8ja5Q-EUSEwjrRCrw6Zmw56MjSy2SoRedw92YcNwyTbw&oe=6A30EA08"
+"https://images.unsplash.com/photo-1539635278303-d4002c07eae3?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
 ];
 
 // ============================================
