@@ -597,7 +597,7 @@ useEffect(() => {
 
                                                         <div className="text-center my-3 p-2 bg-light rounded" style={{ display: "inline-block", width: "100%" }}>
                                                             <img
-                                                                src="/img/binance-qr.png"
+                                                                src="https://www.image2url.com/r2/default/images/1785091347331-87767909-259a-429e-ae65-a1117114d6a2.png"
                                                                 alt="QR Depósito Binance"
                                                                 style={{ maxWidth: "150px", width: "100%", borderRadius: "8px" }}
                                                             />

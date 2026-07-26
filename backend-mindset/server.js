@@ -166,7 +166,7 @@ app.post('/api/auth/register', (req, res) => {
     const newUser = { id: Date.now(), email, password, name, apellido, edad, provider: 'manual' };
     users.push(newUser);
 
-    const token = jwt.sign({ id: newUser.id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '2h' });
+    const token = jwt.sign({ id: newUser.id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.status(201).json({ success: true, message: "Usuario registrado con éxito.", token, user: { id: newUser.id, name: newUser.name, email: newUser.email } });
 });
@@ -181,7 +181,7 @@ app.post('/api/auth/login', (req, res) => {
     }
 
     // Generar Token JWT
-    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '2h' });
+    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.json({ success: true, token, user: { id: user.id, name: user.name, email: user.email } });
 });
@@ -225,7 +225,7 @@ app.post('/api/auth/google', async (req, res) => {
             };
             users.push(newUser);
             
-            const token = jwt.sign({ id: newUser.id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '2h' });
+            const token = jwt.sign({ id: newUser.id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
             return res.status(201).json({ success: true, token, user: { id: newUser.id, email: newUser.email }, isNewUser: true });
         }
 
@@ -235,7 +235,7 @@ app.post('/api/auth/google', async (req, res) => {
                 return res.status(404).json({ success: false, message: "Tu cuenta de Google no está registrada en nuestra plataforma. Regístrate primero." });
             }
 
-            const token = jwt.sign({ id: userExists.id, email: userExists.email }, process.env.JWT_SECRET, { expiresIn: '2h' });
+            const token = jwt.sign({ id: userExists.id, email: userExists.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
             return res.json({ success: true, token, user: { id: userExists.id, name: userExists.name, email: userExists.email } });
         }
 

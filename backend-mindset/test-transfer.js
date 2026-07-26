@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 
-const token = jwt.sign({ id: 1, email: 'test@example.com' }, 'MiClaveSuperSecreta123!', { expiresIn: '2h' });
+const token = jwt.sign({ id: 1, email: 'test@example.com' }, 'MiClaveSuperSecreta123!', { expiresIn: '7d' });
 const form = new FormData();
 form.append('comprobante', new Blob(['dummyimagecontent'], { type: 'image/jpeg' }), 'dummy.jpg');
 form.append('serviceName', 'Test Service');
