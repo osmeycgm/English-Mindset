@@ -436,6 +436,65 @@ app.post('/api/orders/transferencia', verificarToken, upload.single('comprobante
         res.status(500).json({ success: false, message: 'No se pudo enviar el correo con el comprobante.' });
     }
 });
+// ─── 6. ENDPOINT NOTIFICACIÓN PAGO CRIPTO ─────────────────────────────────────
+app.post('/api/orders/crypto', verificarToken, async (req, res) => {
+    if (!mailTransporter) {
+        return res.status(500).json({ success: false, message: 'El servidor de correo no está configurado.' });
+    }
+
+    const { txId, total, cartItems } = req.body;
+
+    if (!txId) {
+        return res.status(400).json({ success: false, message: 'El Hash / TxID de la transacción es obligatorio.' });
+    }
+
+    const clientEmail = req.user?.email || 'No disponible';
+    const clientId = req.user?.id || 'No disponible';
+    const totalUSDT = total ? (total / 950).toFixed(2) : '0.00';
+
+    const subject = `Nuevo pago Cripto (TxID) enviado - English Mindset`;
+    const html = `
+        <h2>Nuevo reporte de pago con Criptomonedas</h2>
+        <p><strong>Cliente:</strong> ${clientEmail}</p>
+        <p><strong>ID de usuario:</strong> ${clientId}</p>
+        <p><strong>Hash / TxID:</strong> <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-weight: bold;">${txId}</code></p>
+        <p><strong>Monto Estimado USDT:</strong> $${totalUSDT} USDT</p>
+        <p><strong>Monto Total CLP:</strong> $${total || 0}</p>
+        <hr />
+        <h3>Detalle del Carrito:</h3>
+        <pre>${JSON.stringify(cartItems || [], null, 2)}</pre>
+    `;
+
+    const mailOptions = {
+        from: SMTP_USER,
+        to: NOTIFICATION_EMAIL,
+        subject,
+        html
+    };
+
+    try {
+        await mailTransporter.sendMail(mailOptions);
+
+        const newOrder = {
+            id: `ORD-${Date.now()}`,
+            method: 'crypto',
+            reference: txId,
+            cartItems: cartItems || [],
+            total,
+            status: 'pending',
+            userEmail: clientEmail,
+            userId: clientId
+        };
+
+        orders.push(newOrder);
+        console.log('✅ Pago Cripto recibido y correo enviado:', newOrder);
+
+        res.json({ success: true, message: 'Notificación de pago cripto enviada correctamente.' });
+    } catch (error) {
+        console.error('Error enviando correo de cripto:', error);
+        res.status(500).json({ success: false, message: 'No se pudo enviar la notificación por correo.' });
+    }
+});
 
 // Iniciar servidor
 app.listen(PORT, () => {

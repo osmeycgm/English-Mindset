@@ -296,23 +296,45 @@ useEffect(() => {
     }
 
     // ─── MANEJADOR CRYPTO MANUAL ──────────────────────────────────────────────
-    const handleCryptoSubmit = (e) => {
-        e.preventDefault();
-        if (!cryptoTxId.trim()) {
-            alert("Por favor ingresa el Hash/TxID de la transacción.");
-            return;
+    const handleCryptoSubmit = async (e) => {
+    e.preventDefault()
+    if (!cryptoTxId.trim()) {
+        alert("Por favor ingresa el Hash/TxID de la transacción.")
+        return
+    }
+
+    try {
+        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"
+        
+        const response = await fetch(`${API_URL}/api/orders/crypto`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                txId: cryptoTxId,
+                total: total(),
+                cartItems: cart
+            })
+        })
+
+        const data = await response.json()
+
+        if (response.ok && data.success) {
+            alert("✅ Notificación enviada. Validaremos tu transacción en la blockchain y activaremos tu plan en breve.")
+            setCart([])
+            setCryptoTxId("")
+            setMetodoSeleccionado(null)
+            navigate("/profile")
+        } else {
+            alert(`Error: ${data.message || "No se pudo enviar la notificación."}`)
         }
-        alert(`Comprobante de Crypto enviado.\nTxID: ${cryptoTxId}\n\nValidando en la blockchain... Tu plan se activará en breve.`);
-        setCart([]);
-        setCryptoTxId("");
-        setMetodoSeleccionado(null);
-        navigate("/profile");
+    } catch (error) {
+        console.error("Error en handleCryptoSubmit:", error)
+        alert(`Error de conexión: ${error.message}`)
     }
-
-    const eliminarItem = (id) => {
-        setCart(cart.filter(item => item.id !== id))
-    }
-
+}
     // Función auxiliar para copiar datos bancarios de forma limpia
     const copiarAlPortapapeles = (texto) => {
         navigator.clipboard.writeText(texto);
@@ -575,7 +597,7 @@ useEffect(() => {
 
                                                         <div className="text-center my-3 p-2 bg-light rounded" style={{ display: "inline-block", width: "100%" }}>
                                                             <img
-                                                                src="/public/img/binance.qr.png"
+                                                                src="/img/binance-qr.png"
                                                                 alt="QR Depósito Binance"
                                                                 style={{ maxWidth: "150px", width: "100%", borderRadius: "8px" }}
                                                             />
