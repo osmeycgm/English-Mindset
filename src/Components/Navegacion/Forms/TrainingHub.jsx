@@ -9,7 +9,8 @@ const TrainingHub = () => {
     // 💡 INTERRUPTOR DE ACCESO REAL: 
     // En producción esto debe ser: const tieneCursoPagado = user?.hasActivePlan || false;
     // Por ahora lo forzamos a 'true' para que puedas ver el mapa y programar.
-    const tieneCursoPagado = true; //
+    const { token, hasActivePlan } = useUser()
+const tieneCursoPagado = hasActivePlan //
     const linkGoogleMeet = "https://meet.google.com/abc-defg-hij"; //
 
     // ESTADOS DE NAVEGACIÓN (macro, micro, unit-detail, exam)

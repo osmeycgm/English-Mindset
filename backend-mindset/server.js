@@ -14,7 +14,6 @@ console.log('DEBUG: module URL', import.meta.url);
 console.log('DEBUG: PAYPAL_CLIENT_ID present', !!process.env.PAYPAL_CLIENT_ID);
 console.log('DEBUG: JWT_SECRET present', !!process.env.JWT_SECRET);
 
-// Ensure `fetch` is available in Node.js environments that don't provide it
 (async () => {
     if (typeof fetch === 'undefined') {
         try {
@@ -22,7 +21,7 @@ console.log('DEBUG: JWT_SECRET present', !!process.env.JWT_SECRET);
             globalThis.fetch = fetchModule.default;
             console.log('DEBUG: polyfilled global.fetch with node-fetch');
         } catch (err) {
-            console.error('ERROR: Failed to polyfill fetch. Install node-fetch or use Node 18+.', err);
+            console.error('ERROR: Failed to polyfill fetch.', err);
         }
     } else {
         console.log('DEBUG: global.fetch is available');
@@ -46,33 +45,30 @@ if (SMTP_USER && SMTP_PASS) {
         host: SMTP_HOST,
         port: SMTP_PORT,
         secure: SMTP_PORT === 465,
-        auth: {
-            user: SMTP_USER,
-            pass: SMTP_PASS
-        }
+        auth: { user: SMTP_USER, pass: SMTP_PASS }
     });
 } else {
-    console.warn('WARNING: SMTP_USER o SMTP_PASS no están definidos en el .env. No se podrá enviar correo.');
+    console.warn('WARNING: SMTP_USER o SMTP_PASS no están definidos.');
 }
 
-// ─── CONFIGURACIÓN DE CORS CORREGIDA ─────────────────────────────────────────
-// Se incluyó el dominio de GitHub Pages para permitir peticiones en producción
 app.use(cors({
     origin: [
-        'https://osmeycgm.github.io', // Tu Frontend en producción
-        'http://localhost:5173',      // Entorno de desarrollo local
-        'http://127.0.0.1:5173',    // Entorno de desarrollo local alternativo
+        'https://osmeycgm.github.io',
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
         'http://localhost:3000'
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
+
 app.use((req, res, next) => {
     res.setHeader("Cross-Origin-Opener-Policy", "unsafe-none")
     res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none")
     next()
 })
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
@@ -80,427 +76,306 @@ app.use((req, res, next) => {
     next();
 });
 
-// Middleware para verificar JWT en rutas privadas
 function verificarToken(req, res, next) {
     const authHeader = req.headers?.authorization;
-    console.log('DEBUG verifyToken authHeader:', authHeader);
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ success: false, message: 'Token de autorización faltante o inválido.' });
+        return res.status(401).json({ success: false, message: 'Token faltante o inválido.' });
     }
-
     const token = authHeader.split(' ')[1];
-    if (!process.env.JWT_SECRET) {
-        console.error('JWT_SECRET no está definido en el .env');
-        return res.status(500).json({ success: false, message: 'Configuración del servidor incompleta.' });
-    }
-
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        console.log('DEBUG verifyToken decoded:', decoded);
         req.user = decoded;
         next();
     } catch (error) {
-        console.error('Error verificando token JWT:', error);
         return res.status(401).json({ success: false, message: 'Token inválido o expirado.' });
     }
 }
 
-// Base de datos temporal en memoria (un array de objetos)
 const users = [];
 const orders = [];
 
-// ─── CONFIGURACIÓN DE PAYPAL ──────────────────────────────────────────────────
+// ─── PAYPAL ───────────────────────────────────────────────────────────────────
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
-const PAYPAL_API = 'https://api-m.sandbox.paypal.com'; // Entorno Sandbox (Pruebas)
+const PAYPAL_API = 'https://api-m.sandbox.paypal.com';
 
-// Show a masked client id for debugging (won't print the secret)
-if (PAYPAL_CLIENT_ID) {
-    const id = PAYPAL_CLIENT_ID.trim();
-    const masked = `${id.slice(0,6)}...${id.slice(-4)}`;
-    console.log('DEBUG: PAYPAL_CLIENT_ID (masked):', masked);
-}
-
-// Función auxiliar para obtener el token de acceso de PayPal de forma segura
 async function generateAccessToken() {
     if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
-        throw new Error("Faltan las credenciales PAYPAL_CLIENT_ID o PAYPAL_CLIENT_SECRET en el .env");
+        throw new Error("Faltan credenciales de PayPal en el .env");
     }
-
     const auth = Buffer.from(`${PAYPAL_CLIENT_ID.trim()}:${PAYPAL_CLIENT_SECRET.trim()}`).toString("base64");
     const response = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
         method: "POST",
         body: "grant_type=client_credentials",
-        headers: {
-            Authorization: `Basic ${auth}`,
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
+        headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" }
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-        console.error("Error autenticando contra PayPal:", response.status, data);
-        throw new Error("No se pudo obtener el token de acceso de PayPal. Revisa tus credenciales de sandbox.");
-    }
-
-    if (!data.access_token) {
-        console.error("PayPal no devolvió access_token:", data);
-        throw new Error("PayPal no devolvió un access_token válido.");
-    }
-
+    if (!response.ok || !data.access_token) throw new Error("No se pudo obtener token de PayPal.");
     return data.access_token;
 }
 
-// ─── 1. AUTENTICACIÓN MANUAL: REGISTRO ──────────────────────────────────────
+// ─── 1. REGISTRO ──────────────────────────────────────────────────────────────
 app.post('/api/auth/register', (req, res) => {
     const { email, password, name, apellido, edad } = req.body;
-
     if (!email || !password || !name) {
         return res.status(400).json({ success: false, message: "Faltan campos obligatorios." });
     }
-
-    // Validar si el usuario ya existe
     const userExists = users.find(u => u.email === email);
     if (userExists) {
         return res.status(400).json({ success: false, message: "El correo ya está registrado." });
     }
 
-    // Crear y guardar el nuevo usuario
-    const newUser = { id: Date.now(), email, password, name, apellido, edad, provider: 'manual' };
+    // ← hasActivePlan agregado
+    const newUser = { 
+        id: Date.now(), email, password, name, apellido, edad, 
+        provider: 'manual', 
+        hasActivePlan: false 
+    };
     users.push(newUser);
 
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    res.status(201).json({ success: true, message: "Usuario registrado con éxito.", token, user: { id: newUser.id, name: newUser.name, email: newUser.email } });
+    // ← apellido y hasActivePlan en la respuesta
+    res.status(201).json({ 
+        success: true, 
+        message: "Usuario registrado con éxito.", 
+        token, 
+        user: { 
+            id: newUser.id, 
+            name: newUser.name, 
+            apellido: newUser.apellido,
+            email: newUser.email, 
+            hasActivePlan: newUser.hasActivePlan 
+        } 
+    });
 });
 
-// ─── 2. AUTENTICACIÓN MANUAL: LOGIN ─────────────────────────────────────────
+// ─── 2. LOGIN ─────────────────────────────────────────────────────────────────
 app.post('/api/auth/login', (req, res) => {
     const { email, password } = req.body;
-
     const user = users.find(u => u.email === email && u.password === password);
     if (!user) {
         return res.status(401).json({ success: false, message: "Credenciales incorrectas o usuario no registrado." });
     }
-
-    // Generar Token JWT
     const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    res.json({ success: true, token, user: { id: user.id, name: user.name, email: user.email } });
+    // ← apellido y hasActivePlan en la respuesta
+    res.json({ 
+        success: true, 
+        token, 
+        user: { 
+            id: user.id, 
+            name: user.name, 
+            apellido: user.apellido,
+            email: user.email, 
+            hasActivePlan: user.hasActivePlan 
+        } 
+    });
 });
 
-// ─── 3. FLUJO DE GOOGLE (LOGIN Y REGISTER) ──────────────────────────────────
+// ─── 3. GOOGLE AUTH ───────────────────────────────────────────────────────────
 app.post('/api/auth/google', async (req, res) => {
     const { email, tokenGoogle, mode } = req.body;
-
     try {
-        // Verificar de forma segura que el token enviado desde el frontend es real y legítimo de Google
         const ticket = await client.verifyIdToken({
             audience: process.env.GOOGLE_CLIENT_ID,
             idToken: tokenGoogle,
         });
         const payload = ticket.getPayload();
-        
         if (payload.email !== email) {
             return res.status(400).json({ success: false, message: "El correo no coincide con el token de Google." });
         }
-
         const userExists = users.find(u => u.email === email);
 
-        // CASO A: El usuario intenta REGISTRARSE
         if (mode === 'register') {
             if (userExists) {
-                return res.status(409).json({ 
-                    success: false, 
-                    message: "ya existe esta cuenta. Por favor, inicia sesión.",
-                    isNewUser: false 
-                });
+                return res.status(409).json({ success: false, message: "ya existe esta cuenta. Por favor, inicia sesión.", isNewUser: false });
             }
-
-            // Si no existe, lo creamos
+            // ← hasActivePlan agregado
             const newUser = {
-                id: Date.now(),
-                email,
+                id: Date.now(), email,
                 name: payload.given_name || "Usuario",
                 apellido: payload.family_name || "Google",
                 edad: "No especificada",
-                provider: 'google'
+                provider: 'google',
+                hasActivePlan: false
             };
             users.push(newUser);
-            
             const token = jwt.sign({ id: newUser.id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-            return res.status(201).json({ success: true, token, user: { id: newUser.id, email: newUser.email }, isNewUser: true });
+            // ← hasActivePlan en la respuesta
+            return res.status(201).json({ 
+                success: true, token, 
+                user: { id: newUser.id, email: newUser.email, name: newUser.name, apellido: newUser.apellido, hasActivePlan: newUser.hasActivePlan }, 
+                isNewUser: true 
+            });
         }
 
-        // CASO B: El usuario intenta INICIAR SESIÓN (Login)
         if (mode === 'login') {
             if (!userExists) {
-                return res.status(404).json({ success: false, message: "Tu cuenta de Google no está registrada en nuestra plataforma. Regístrate primero." });
+                return res.status(404).json({ success: false, message: "Tu cuenta de Google no está registrada. Regístrate primero." });
             }
-
             const token = jwt.sign({ id: userExists.id, email: userExists.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-            return res.json({ success: true, token, user: { id: userExists.id, name: userExists.name, email: userExists.email } });
+            // ← hasActivePlan en la respuesta
+            return res.json({ 
+                success: true, token, 
+                user: { id: userExists.id, name: userExists.name, apellido: userExists.apellido, email: userExists.email, hasActivePlan: userExists.hasActivePlan } 
+            });
         }
-
     } catch (error) {
         console.error("Error validando token de Google:", error);
         res.status(500).json({ success: false, message: "Error interno al verificar con Google." });
     }
 });
 
-// ─── 4. ENDPOINTS DE PAYPAL ──────────────────────────────────────────────────
+// ─── 4. PERFIL AUTENTICADO ────────────────────────────────────────────────────
+app.get('/api/auth/me', verificarToken, (req, res) => {
+    const user = users.find(u => u.id === req.user.id)
+    if (!user) return res.status(404).json({ success: false, message: "Usuario no encontrado." })
+    res.json({ 
+        success: true, 
+        user: { 
+            id: user.id, email: user.email, 
+            name: user.name, apellido: user.apellido,
+            hasActivePlan: user.hasActivePlan 
+        } 
+    })
+});
+
+// ─── 5. PAYPAL ENDPOINTS ──────────────────────────────────────────────────────
 app.post('/api/paypal/create-order', async (req, res) => {
-    console.log('PayPal create-order request auth header:', req.headers.authorization);
     try {
-        const { totalUSD, totalCLP, cartItems } = req.body; 
-
-        if (!totalUSD) {
-            return res.status(400).json({ success: false, message: "Falta el monto total en USD." });
-        }
-
+        const { totalUSD } = req.body;
+        if (!totalUSD) return res.status(400).json({ success: false, message: "Falta el monto en USD." });
         const formattedTotal = Number(totalUSD).toFixed(2);
-
         const accessToken = await generateAccessToken();
         const response = await fetch(`${PAYPAL_API}/v2/checkout/orders`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${accessToken}`
-            },
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
             body: JSON.stringify({
                 intent: "CAPTURE",
-                purchase_units: [{
-                    amount: {
-                        currency_code: "USD",
-                        value: formattedTotal
-                    },
-                    description: "Inscripción Plan - English Mindset"
-                }]
+                purchase_units: [{ amount: { currency_code: "USD", value: formattedTotal }, description: "Inscripción Plan - English Mindset" }]
             })
         });
-
         const orderData = await response.json();
-
-        if (!response.ok) {
-            console.error("Detalle del error de PayPal:", orderData);
-            return res.status(response.status).json({ success: false, message: "Error en la API de PayPal", details: orderData });
-        }
-
+        if (!response.ok) return res.status(response.status).json({ success: false, message: "Error en PayPal", details: orderData });
         res.status(201).json({ id: orderData.id });
     } catch (error) {
-        console.error("Error al crear orden de PayPal:", error);
         res.status(500).json({ success: false, message: "Error al generar la orden en PayPal." });
     }
 });
 
 app.post('/api/paypal/capture-order', verificarToken, async (req, res) => {
     try {
-        const { orderID, cartItems, totalCLP } = req.body; 
-
-        if (!orderID) {
-            return res.status(400).json({ success: false, message: "Falta el parámetro orderID en el cuerpo de la petición." });
-        }
-
+        const { orderID, cartItems, totalCLP } = req.body;
+        if (!orderID) return res.status(400).json({ success: false, message: "Falta orderID." });
         const accessToken = await generateAccessToken();
         const response = await fetch(`${PAYPAL_API}/v2/checkout/orders/${orderID}/capture`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${accessToken}`
-            }
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }
         });
-
         const captureData = await response.json();
-
         if (!response.ok || captureData.error || captureData.details) {
-            console.error("Fallo en la captura de PayPal:", captureData);
-            return res.status(400).json({ 
-                success: false, 
-                message: "No se pudo completar la captura del pago.", 
-                details: captureData 
-            });
+            return res.status(400).json({ success: false, message: "No se pudo capturar el pago.", details: captureData });
         }
-
         if (captureData.status === "COMPLETED") {
-            const newOrder = {
-                id: `ORD-${Date.now()}`,
-                method: "paypal",
-                reference: orderID, 
-                cartItems: cartItems || [],
-                total: totalCLP || 9990,
-                status: 'approved'
-            };
 
-            orders.push(newOrder);
-            console.log("✅ Pago de PayPal aprobado y guardado en memoria:", newOrder);
+            // ← PayPal activa el plan automáticamente
+            const user = users.find(u => u.id === req.user.id)
+            if (user) {
+                user.hasActivePlan = true
+                console.log(`✅ Plan activado automáticamente por PayPal para: ${user.email}`)
+            }
 
-            return res.status(200).json({ 
-                success: true, 
-                message: "¡Pago procesado y verificado con éxito!",
-                details: captureData 
-            });
-        } else {
-            return res.status(400).json({ success: false, message: `El pago quedó en estado: ${captureData.status}` });
+            orders.push({ id: `ORD-${Date.now()}`, method: "paypal", reference: orderID, cartItems: cartItems || [], total: totalCLP || 0, status: 'approved' });
+            return res.status(200).json({ success: true, message: "¡Pago procesado con éxito!", details: captureData });
         }
+        return res.status(400).json({ success: false, message: `El pago quedó en estado: ${captureData.status}` });
     } catch (error) {
-        console.error("Error al capturar orden de PayPal:", error);
         res.status(500).json({ success: false, message: "Error interno al capturar el pago." });
     }
 });
 
-// ─── 5. ENDPOINTS DEL CARRITO Y TRANSFERENCIAS ───────────────────────────────
+// ─── 6. TRANSFERENCIAS ────────────────────────────────────────────────────────
 app.post('/api/orders/checkout', (req, res) => {
     const { method, reference, cartItems, total } = req.body;
-
-    const newOrder = {
-        id: `ORD-${Date.now()}`,
-        method,         
-        reference,      
-        cartItems,
-        total,
-        status: 'pending'
-    };
-
-    orders.push(newOrder);
-    console.log("Nueva orden recibida en el backend:", newOrder);
-
-    res.json({ success: true, message: "Comprobante recibido de forma exitosa en el servidor." });
+    orders.push({ id: `ORD-${Date.now()}`, method, reference, cartItems, total, status: 'pending' });
+    res.json({ success: true, message: "Comprobante recibido." });
 });
 
 app.post('/api/orders/transferencia', verificarToken, upload.single('comprobante'), async (req, res) => {
-    if (!mailTransporter) {
-        return res.status(500).json({ success: false, message: 'El servidor de correo no está configurado.' });
-    }
-
+    if (!mailTransporter) return res.status(500).json({ success: false, message: 'Servidor de correo no configurado.' });
     const file = req.file;
+    if (!file) return res.status(400).json({ success: false, message: 'Se requiere comprobante adjunto.' });
+
     const { serviceName, servicePrice, total, cartItems, userEmail, userId } = req.body;
-
-    if (!file) {
-        return res.status(400).json({ success: false, message: 'Se requiere un comprobante de pago adjunto.' });
-    }
-
     const clientEmail = userEmail || req.user?.email || 'No disponible';
     const clientId = userId || req.user?.id || 'No disponible';
     let parsedCartItems = [];
+    try { parsedCartItems = cartItems ? JSON.parse(cartItems) : []; } catch { parsedCartItems = []; }
 
     try {
-        parsedCartItems = cartItems ? JSON.parse(cartItems) : [];
+        await mailTransporter.sendMail({
+            from: SMTP_USER, to: NOTIFICATION_EMAIL,
+            subject: `Nueva transferencia: ${serviceName || 'Servicio'}`,
+            html: `<h2>Comprobante de transferencia</h2><p><strong>Cliente:</strong> ${clientEmail}</p><p><strong>Servicio:</strong> ${serviceName}</p><p><strong>Total:</strong> ${total}</p>`,
+            attachments: [{ filename: file.originalname, content: file.buffer }]
+        });
+        orders.push({ id: `ORD-${Date.now()}`, method: 'transferencia', reference: file.originalname, cartItems: parsedCartItems, total, status: 'pending', userEmail: clientEmail });
+        console.log('✅ Transferencia recibida:', clientEmail);
+        res.json({ success: true, message: 'Comprobante enviado correctamente.' });
     } catch (error) {
-        parsedCartItems = [];
-    }
-
-    const subject = `Nueva transferencia recibida: ${serviceName || 'Servicio sin nombre'}`;
-    const html = `
-        <h2>Nuevo comprobante de transferencia</h2>
-        <p><strong>Cliente:</strong> ${clientEmail}</p>
-        <p><strong>ID de cliente:</strong> ${clientId}</p>
-        <p><strong>Servicio comprado:</strong> ${serviceName || 'No especificado'}</p>
-        <p><strong>Monto total:</strong> ${total || 'No especificado'}</p>
-        <p><strong>Precio del servicio:</strong> ${servicePrice || 'No especificado'}</p>
-        <p><strong>Carrito:</strong></p>
-        <pre>${JSON.stringify(parsedCartItems, null, 2)}</pre>
-        <p>Adjunto se incluye la captura de pago enviada por el cliente.</p>
-    `;
-
-    const mailOptions = {
-        from: SMTP_USER,
-        to: NOTIFICATION_EMAIL,
-        subject,
-        html,
-        attachments: [
-            {
-                filename: file.originalname,
-                content: file.buffer
-            }
-        ]
-    };
-
-    try {
-        await mailTransporter.sendMail(mailOptions);
-
-        const newOrder = {
-            id: `ORD-${Date.now()}`,
-            method: 'transferencia',
-            reference: file.originalname,
-            cartItems: parsedCartItems,
-            total,
-            status: 'pending',
-            userEmail: clientEmail,
-            userId: clientId,
-            serviceName: serviceName || 'No especificado'
-        };
-
-        orders.push(newOrder);
-        console.log('✅ Transferencia recibida y correo enviado:', newOrder);
-
-        res.json({ success: true, message: 'Comprobante enviado por correo correctamente.' });
-    } catch (error) {
-        console.error('Error enviando correo de transferencia:', error);
-        res.status(500).json({ success: false, message: 'No se pudo enviar el correo con el comprobante.' });
+        res.status(500).json({ success: false, message: 'No se pudo enviar el correo.' });
     }
 });
-// ─── 6. ENDPOINT NOTIFICACIÓN PAGO CRIPTO ─────────────────────────────────────
+
+// ─── 7. CRYPTO ────────────────────────────────────────────────────────────────
 app.post('/api/orders/crypto', verificarToken, async (req, res) => {
-    if (!mailTransporter) {
-        return res.status(500).json({ success: false, message: 'El servidor de correo no está configurado.' });
-    }
-
+    if (!mailTransporter) return res.status(500).json({ success: false, message: 'Servidor de correo no configurado.' });
     const { txId, total, cartItems } = req.body;
-
-    if (!txId) {
-        return res.status(400).json({ success: false, message: 'El Hash / TxID de la transacción es obligatorio.' });
-    }
+    if (!txId) return res.status(400).json({ success: false, message: 'El TxID es obligatorio.' });
 
     const clientEmail = req.user?.email || 'No disponible';
-    const clientId = req.user?.id || 'No disponible';
     const totalUSDT = total ? (total / 950).toFixed(2) : '0.00';
 
-    const subject = `Nuevo pago Cripto (TxID) enviado - English Mindset`;
-    const html = `
-        <h2>Nuevo reporte de pago con Criptomonedas</h2>
-        <p><strong>Cliente:</strong> ${clientEmail}</p>
-        <p><strong>ID de usuario:</strong> ${clientId}</p>
-        <p><strong>Hash / TxID:</strong> <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-weight: bold;">${txId}</code></p>
-        <p><strong>Monto Estimado USDT:</strong> $${totalUSDT} USDT</p>
-        <p><strong>Monto Total CLP:</strong> $${total || 0}</p>
-        <hr />
-        <h3>Detalle del Carrito:</h3>
-        <pre>${JSON.stringify(cartItems || [], null, 2)}</pre>
-    `;
-
-    const mailOptions = {
-        from: SMTP_USER,
-        to: NOTIFICATION_EMAIL,
-        subject,
-        html
-    };
-
     try {
-        await mailTransporter.sendMail(mailOptions);
-
-        const newOrder = {
-            id: `ORD-${Date.now()}`,
-            method: 'crypto',
-            reference: txId,
-            cartItems: cartItems || [],
-            total,
-            status: 'pending',
-            userEmail: clientEmail,
-            userId: clientId
-        };
-
-        orders.push(newOrder);
-        console.log('✅ Pago Cripto recibido y correo enviado:', newOrder);
-
-        res.json({ success: true, message: 'Notificación de pago cripto enviada correctamente.' });
+        await mailTransporter.sendMail({
+            from: SMTP_USER, to: NOTIFICATION_EMAIL,
+            subject: `Pago Cripto recibido - English Mindset`,
+            html: `<h2>Pago con Criptomonedas</h2><p><strong>Cliente:</strong> ${clientEmail}</p><p><strong>TxID:</strong> ${txId}</p><p><strong>Monto:</strong> $${totalUSDT} USDT</p>`
+        });
+        orders.push({ id: `ORD-${Date.now()}`, method: 'crypto', reference: txId, cartItems: cartItems || [], total, status: 'pending', userEmail: clientEmail });
+        console.log('✅ Pago Cripto recibido:', clientEmail);
+        res.json({ success: true, message: 'Notificación enviada correctamente.' });
     } catch (error) {
-        console.error('Error enviando correo de cripto:', error);
-        res.status(500).json({ success: false, message: 'No se pudo enviar la notificación por correo.' });
+        res.status(500).json({ success: false, message: 'No se pudo enviar la notificación.' });
     }
 });
 
-// Iniciar servidor
+// ─── 8. ADMIN: ACTIVAR PLAN ───────────────────────────────────────────────────
+app.post('/api/admin/activate-user', (req, res) => {
+    const { email, adminSecret } = req.body
+    if (adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(403).json({ success: false, message: "Acceso denegado." })
+    }
+    const user = users.find(u => u.email === email)
+    if (!user) return res.status(404).json({ success: false, message: "Usuario no encontrado." })
+    user.hasActivePlan = true
+    console.log(`✅ Plan activado manualmente para: ${email}`)
+    res.json({ success: true, message: `Plan activado para ${email}.` })
+})
+
+// ─── 9. ADMIN: VER USUARIOS ───────────────────────────────────────────────────
+app.get('/api/admin/users', (req, res) => {
+    const { adminSecret } = req.query
+    if (adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(403).json({ success: false, message: "Acceso denegado." })
+    }
+    res.json({ success: true, users: users.map(u => ({ 
+        id: u.id, email: u.email, name: u.name, hasActivePlan: u.hasActivePlan, provider: u.provider
+    }))})
+})
+
+// ─── INICIAR SERVIDOR ─────────────────────────────────────────────────────────
 app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
 });
