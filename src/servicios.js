@@ -459,7 +459,7 @@ export const timelineMethods = [
     badge: "La Cúspide de English Mindset",
     color: "#10b981",
     focus: "El idioma pasa a segundo plano para enfocarse en un entregable real: liderar una charla, hacer una presentación de negocios o exponer un caso de estudio con confianza.",
-    neuroscience: "Simula el entorno de alta presión en situaciones varias con solicitudes especificas a cumplir. Al concentrarse en resolver la tarea, el cerebro absorbe la gramática y el vocabulario técnico con esfuerzo consciente superando y absorbiendo experiencia a través de retos metals."
+    neuroscience: "Simula el entorno de alta presión en situaciones varias con solicitudes especificas a cumplir. Al concentrarse en resolver la tarea, el cerebro absorbe la gramática y el vocabulario técnico con esfuerzo consciente superando y absorbiendo experiencia a través de retos mentales."
   }
 ];
 

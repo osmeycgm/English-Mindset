@@ -19,6 +19,8 @@ import Test from './Components/Navegacion/Forms/Test'
 import Testing from './Components/Navegacion/Forms/Testing'
 import TrainingHub from './Components/Navegacion/Forms/TrainingHub'
 import Testing0 from './Components/Navegacion/Forms/Testing0'
+import AdminRoute from './Components/AdminRoute'
+import AdminDashboard from './Components/AdminDashboard'
 
 function App() {
   const { token } = useUser()
@@ -27,7 +29,8 @@ function App() {
     <>
       <Navegacion />
       <Routes>
-        {/* Rutas Públicas Principales */}
+        {/* ─── RUTAS PÚBLICAS / CLIENTE ─── */}
+
         <Route path="/" element={<Home />} />
         <Route path="/login" element={!token ? <LoginPage /> : <Navigate to="/" />} />
         <Route path="/register" element={!token ? <RegisterPage /> : <Navigate to="/" />} />
@@ -52,6 +55,11 @@ function App() {
 
         {/* 🚨 Control de errores: Redirección de URLs inexistentes */}
         <Route path="*" element={<NotFound />} />
+
+        {/* ─── RUTAS PROTEGIDAS / ADMINISTRADOR ─── */}
+        <Route element={<AdminRoute/>}>
+        <Route path="/admin" element={<AdminDashboard />} />
+      </Route>
       </Routes>
       <Footer />
     </>

@@ -64,10 +64,10 @@ app.use(cors({
 }));
 
 app.use((req, res, next) => {
-    res.setHeader("Cross-Origin-Opener-Policy", "unsafe-none")
-    res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none")
-    next()
-})
+    res.setHeader("Cross-Origin-Opener-Policy", "unsafe-none");
+    res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
+    next();
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -125,7 +125,6 @@ app.post('/api/auth/register', (req, res) => {
         return res.status(400).json({ success: false, message: "El correo ya está registrado." });
     }
 
-    // ← hasActivePlan agregado
     const newUser = { 
         id: Date.now(), email, password, name, apellido, edad, 
         provider: 'manual', 
@@ -135,7 +134,6 @@ app.post('/api/auth/register', (req, res) => {
 
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    // ← apellido y hasActivePlan en la respuesta
     res.status(201).json({ 
         success: true, 
         message: "Usuario registrado con éxito.", 
@@ -159,7 +157,6 @@ app.post('/api/auth/login', (req, res) => {
     }
     const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    // ← apellido y hasActivePlan en la respuesta
     res.json({ 
         success: true, 
         token, 
@@ -191,7 +188,6 @@ app.post('/api/auth/google', async (req, res) => {
             if (userExists) {
                 return res.status(409).json({ success: false, message: "ya existe esta cuenta. Por favor, inicia sesión.", isNewUser: false });
             }
-            // ← hasActivePlan agregado
             const newUser = {
                 id: Date.now(), email,
                 name: payload.given_name || "Usuario",
@@ -202,7 +198,6 @@ app.post('/api/auth/google', async (req, res) => {
             };
             users.push(newUser);
             const token = jwt.sign({ id: newUser.id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-            // ← hasActivePlan en la respuesta
             return res.status(201).json({ 
                 success: true, token, 
                 user: { id: newUser.id, email: newUser.email, name: newUser.name, apellido: newUser.apellido, hasActivePlan: newUser.hasActivePlan }, 
@@ -215,7 +210,6 @@ app.post('/api/auth/google', async (req, res) => {
                 return res.status(404).json({ success: false, message: "Tu cuenta de Google no está registrada. Regístrate primero." });
             }
             const token = jwt.sign({ id: userExists.id, email: userExists.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-            // ← hasActivePlan en la respuesta
             return res.json({ 
                 success: true, token, 
                 user: { id: userExists.id, name: userExists.name, apellido: userExists.apellido, email: userExists.email, hasActivePlan: userExists.hasActivePlan } 
@@ -229,8 +223,8 @@ app.post('/api/auth/google', async (req, res) => {
 
 // ─── 4. PERFIL AUTENTICADO ────────────────────────────────────────────────────
 app.get('/api/auth/me', verificarToken, (req, res) => {
-    const user = users.find(u => u.id === req.user.id)
-    if (!user) return res.status(404).json({ success: false, message: "Usuario no encontrado." })
+    const user = users.find(u => u.id === req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: "Usuario no encontrado." });
     res.json({ 
         success: true, 
         user: { 
@@ -238,7 +232,7 @@ app.get('/api/auth/me', verificarToken, (req, res) => {
             name: user.name, apellido: user.apellido,
             hasActivePlan: user.hasActivePlan 
         } 
-    })
+    });
 });
 
 // ─── 5. PAYPAL ENDPOINTS ──────────────────────────────────────────────────────
@@ -278,12 +272,10 @@ app.post('/api/paypal/capture-order', verificarToken, async (req, res) => {
             return res.status(400).json({ success: false, message: "No se pudo capturar el pago.", details: captureData });
         }
         if (captureData.status === "COMPLETED") {
-
-            // ← PayPal activa el plan automáticamente
-            const user = users.find(u => u.id === req.user.id)
+            const user = users.find(u => u.id === req.user.id);
             if (user) {
-                user.hasActivePlan = true
-                console.log(`✅ Plan activado automáticamente por PayPal para: ${user.email}`)
+                user.hasActivePlan = true;
+                console.log(`✅ Plan activado automáticamente por PayPal para: ${user.email}`);
             }
 
             orders.push({ id: `ORD-${Date.now()}`, method: "paypal", reference: orderID, cartItems: cartItems || [], total: totalCLP || 0, status: 'approved' });
@@ -296,12 +288,6 @@ app.post('/api/paypal/capture-order', verificarToken, async (req, res) => {
 });
 
 // ─── 6. TRANSFERENCIAS ────────────────────────────────────────────────────────
-app.post('/api/orders/checkout', (req, res) => {
-    const { method, reference, cartItems, total } = req.body;
-    orders.push({ id: `ORD-${Date.now()}`, method, reference, cartItems, total, status: 'pending' });
-    res.json({ success: true, message: "Comprobante recibido." });
-});
-
 app.post('/api/orders/transferencia', verificarToken, upload.single('comprobante'), async (req, res) => {
     if (!mailTransporter) return res.status(500).json({ success: false, message: 'Servidor de correo no configurado.' });
     const file = req.file;
@@ -313,17 +299,47 @@ app.post('/api/orders/transferencia', verificarToken, upload.single('comprobante
     let parsedCartItems = [];
     try { parsedCartItems = cartItems ? JSON.parse(cartItems) : []; } catch { parsedCartItems = []; }
 
+    // Determinar la URL base dinámica para Railway/Local
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+    
+    // Generar Tokens de Acción para el Correo (Válidos por 7 días)
+    const tokenActivar = jwt.sign({ userId: clientId, email: clientEmail, action: 'activate' }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const tokenDesactivar = jwt.sign({ userId: clientId, email: clientEmail, action: 'deactivate' }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    const urlActivar = `${baseUrl}/api/admin/change-status?token=${tokenActivar}`;
+    const urlDesactivar = `${baseUrl}/api/admin/change-status?token=${tokenDesactivar}`;
+
     try {
         await mailTransporter.sendMail({
             from: SMTP_USER, to: NOTIFICATION_EMAIL,
             subject: `Nueva transferencia: ${serviceName || 'Servicio'}`,
-            html: `<h2>Comprobante de transferencia</h2><p><strong>Cliente:</strong> ${clientEmail}</p><p><strong>Servicio:</strong> ${serviceName}</p><p><strong>Total:</strong> ${total}</p>`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px;">
+                    <h2 style="color: #0f172a;">Comprobante de transferencia recibido</h2>
+                    <p><strong>Cliente:</strong> ${clientEmail}</p>
+                    <p><strong>ID Cliente:</strong> ${clientId}</p>
+                    <p><strong>Servicio:</strong> ${serviceName || 'No especificado'}</p>
+                    <p><strong>Total:</strong> $${total}</p>
+                    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+                    <h3 style="color: #334155;">Acciones de Administrador:</h3>
+                    <p style="font-size: 14px; color: #64748b;">Selecciona una opción para actualizar inmediatamente el acceso del cliente:</p>
+                    <div style="margin-top: 20px;">
+                        <a href="${urlActivar}" style="background-color: #22c55e; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; margin-right: 12px;">
+                            ✅ Aprobar y Activar Plan
+                        </a>
+                        <a href="${urlDesactivar}" style="background-color: #ef4444; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                            🚫 Marcar Moroso / Desactivar
+                        </a>
+                    </div>
+                </div>
+            `,
             attachments: [{ filename: file.originalname, content: file.buffer }]
         });
         orders.push({ id: `ORD-${Date.now()}`, method: 'transferencia', reference: file.originalname, cartItems: parsedCartItems, total, status: 'pending', userEmail: clientEmail });
-        console.log('✅ Transferencia recibida:', clientEmail);
+        console.log('✅ Transferencia recibida e email enviado con botones a:', clientEmail);
         res.json({ success: true, message: 'Comprobante enviado correctamente.' });
     } catch (error) {
+        console.error("Error al enviar correo de transferencia:", error);
         res.status(500).json({ success: false, message: 'No se pudo enviar el correo.' });
     }
 });
@@ -335,45 +351,125 @@ app.post('/api/orders/crypto', verificarToken, async (req, res) => {
     if (!txId) return res.status(400).json({ success: false, message: 'El TxID es obligatorio.' });
 
     const clientEmail = req.user?.email || 'No disponible';
+    const clientId = req.user?.id || 'No disponible';
     const totalUSDT = total ? (total / 950).toFixed(2) : '0.00';
+
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const tokenActivar = jwt.sign({ userId: clientId, email: clientEmail, action: 'activate' }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const tokenDesactivar = jwt.sign({ userId: clientId, email: clientEmail, action: 'deactivate' }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    const urlActivar = `${baseUrl}/api/admin/change-status?token=${tokenActivar}`;
+    const urlDesactivar = `${baseUrl}/api/admin/change-status?token=${tokenDesactivar}`;
 
     try {
         await mailTransporter.sendMail({
             from: SMTP_USER, to: NOTIFICATION_EMAIL,
             subject: `Pago Cripto recibido - English Mindset`,
-            html: `<h2>Pago con Criptomonedas</h2><p><strong>Cliente:</strong> ${clientEmail}</p><p><strong>TxID:</strong> ${txId}</p><p><strong>Monto:</strong> $${totalUSDT} USDT</p>`
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px;">
+                    <h2 style="color: #0f172a;">Pago con Criptomonedas recibido</h2>
+                    <p><strong>Cliente:</strong> ${clientEmail}</p>
+                    <p><strong>ID Cliente:</strong> ${clientId}</p>
+                    <p><strong>TxID:</strong> ${txId}</p>
+                    <p><strong>Monto:</strong> $${totalUSDT} USDT ($${total} CLP)</p>
+                    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+                    <h3 style="color: #334155;">Acciones de Administrador:</h3>
+                    <div style="margin-top: 20px;">
+                        <a href="${urlActivar}" style="background-color: #22c55e; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; margin-right: 12px;">
+                            ✅ Aprobar y Activar Plan
+                        </a>
+                        <a href="${urlDesactivar}" style="background-color: #ef4444; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                            🚫 Marcar Moroso / Desactivar
+                        </a>
+                    </div>
+                </div>
+            `
         });
         orders.push({ id: `ORD-${Date.now()}`, method: 'crypto', reference: txId, cartItems: cartItems || [], total, status: 'pending', userEmail: clientEmail });
-        console.log('✅ Pago Cripto recibido:', clientEmail);
+        console.log('✅ Pago Cripto recibido e email enviado a:', clientEmail);
         res.json({ success: true, message: 'Notificación enviada correctamente.' });
     } catch (error) {
+        console.error("Error al enviar correo de cripto:", error);
         res.status(500).json({ success: false, message: 'No se pudo enviar la notificación.' });
     }
 });
 
-// ─── 8. ADMIN: ACTIVAR PLAN ───────────────────────────────────────────────────
-app.post('/api/admin/activate-user', (req, res) => {
-    const { email, adminSecret } = req.body
-    if (adminSecret !== process.env.ADMIN_SECRET) {
-        return res.status(403).json({ success: false, message: "Acceso denegado." })
+// ─── 8. ADMIN: CAMBIAR ESTADO DESDE CORREO ────────────────────────────────────
+app.get('/api/admin/change-status', (req, res) => {
+    const { token } = req.query;
+    if (!token) {
+        return res.status(400).send('<h1 style="color:red; font-family:sans-serif; text-align:center; margin-top:50px;">Error: Token no proporcionado.</h1>');
     }
-    const user = users.find(u => u.email === email)
-    if (!user) return res.status(404).json({ success: false, message: "Usuario no encontrado." })
-    user.hasActivePlan = true
-    console.log(`✅ Plan activado manualmente para: ${email}`)
-    res.json({ success: true, message: `Plan activado para ${email}.` })
-})
 
-// ─── 9. ADMIN: VER USUARIOS ───────────────────────────────────────────────────
-app.get('/api/admin/users', (req, res) => {
-    const { adminSecret } = req.query
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const { userId, email, action } = decoded;
+
+        // Buscar usuario en memoria por id o por email
+        const user = users.find(u => u.id === userId || u.email === email);
+        if (!user) {
+            return res.status(404).send(`
+                <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
+                    <h1 style="color: #ef4444;">Usuario no encontrado</h1>
+                    <p>No se encontró un usuario registrado que coincida con este enlace.</p>
+                </div>
+            `);
+        }
+
+        const isActivating = action === 'activate';
+        user.hasActivePlan = isActivating;
+
+        console.log(`⚙️ ADMIN ACTION: ${user.email} -> hasActivePlan = ${isActivating}`);
+
+        res.send(`
+            <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px; padding: 20px;">
+                <h1 style="color: ${isActivating ? '#22c55e' : '#ef4444'}; font-size: 32px;">
+                    ${isActivating ? '¡Plan Activado con Éxito!' : '¡Plan Desactivado / Usuario Suspendido!'}
+                </h1>
+                <p style="font-size: 18px; color: #334155;">
+                    El estado del plan para <strong>${user.email}</strong> ahora es: 
+                    <strong style="color: ${isActivating ? '#22c55e' : '#ef4444'};">
+                        ${isActivating ? 'ACTIVO' : 'INACTIVO / MOROSO'}
+                    </strong>.
+                </p>
+                <p style="color: #64748b; margin-top: 30px;">Puedes cerrar esta pestaña de forma segura.</p>
+            </div>
+        `);
+
+    } catch (error) {
+        console.error("Error al procesar acción de admin:", error);
+        res.status(401).send(`
+            <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px; padding: 20px;">
+                <h1 style="color: #ef4444;">Enlace inválido o expirado</h1>
+                <p>Este enlace ya expiró (validez de 7 días) o no coincide con la firma de seguridad.</p>
+            </div>
+        `);
+    }
+});
+
+// ─── 9. ADMIN: ACTIVAR PLAN MANUAL ───────────────────────────────────────────
+app.post('/api/admin/activate-user', (req, res) => {
+    const { email, adminSecret } = req.body;
     if (adminSecret !== process.env.ADMIN_SECRET) {
-        return res.status(403).json({ success: false, message: "Acceso denegado." })
+        return res.status(403).json({ success: false, message: "Acceso denegado." });
+    }
+    const user = users.find(u => u.email === email);
+    if (!user) return res.status(404).json({ success: false, message: "Usuario no encontrado." });
+    user.hasActivePlan = true;
+    console.log(`✅ Plan activado manualmente para: ${email}`);
+    res.json({ success: true, message: `Plan activado para ${email}.` });
+});
+
+// ─── 10. ADMIN: VER USUARIOS ──────────────────────────────────────────────────
+app.get('/api/admin/users', (req, res) => {
+    const { adminSecret } = req.query;
+    if (adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(403).json({ success: false, message: "Acceso denegado." });
     }
     res.json({ success: true, users: users.map(u => ({ 
         id: u.id, email: u.email, name: u.name, hasActivePlan: u.hasActivePlan, provider: u.provider
-    }))})
-})
+    }))});
+});
 
 // ─── INICIAR SERVIDOR ─────────────────────────────────────────────────────────
 app.listen(PORT, () => {

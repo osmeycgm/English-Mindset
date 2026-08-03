@@ -4,7 +4,6 @@ import { createContext, useState, useContext, useEffect } from "react"
 export const UserContext = createContext()
 
 // Configuración dinámica de la URL del Backend:
-// Si estás en local (localhost o 127.0.0.1) usa el puerto 5000 local; en producción usa Railway.
 const API_URL =
     window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
         ? "http://127.0.0.1:5000"
@@ -16,7 +15,13 @@ export const UserProvider = ({ children }) => {
     const [email, setEmail] = useState(() => localStorage.getItem("em_email") || null)
     const [id, setId] = useState(() => localStorage.getItem("em_id") || null)
 
-    // PERSISTENCIA DE LA SESIÓN: Si hay un token activo, se mantiene al recargar la página
+    // Evaluar si el usuario actual es Administrador
+    const isAdmin = email === 'osmey009@gmail.com';
+    
+    // Objeto user para componentes que requieran la estructura { id, email }
+    const user = token ? { id, email } : null;
+
+    // PERSISTENCIA DE LA SESIÓN
     useEffect(() => {
         if (token) {
             console.log('DEBUG UserContext: guardando token en localStorage', token)
@@ -35,7 +40,7 @@ export const UserProvider = ({ children }) => {
     }, [])
 
     // ==========================================
-    // INGRESO CON GOOGLE (Conexión Real Backend)
+    // INGRESO CON GOOGLE
     // ==========================================
     const loginWithGoogle = async (userEmail, googleToken, mode) => {
         try {
@@ -50,12 +55,10 @@ export const UserProvider = ({ children }) => {
             if (response.ok && data.success) {
                 setToken(data.token)
                 setEmail(userEmail)
-                // Usamos el ID devuelto por el servidor o un fallback temporal
                 setId(data.user?.id || Date.now().toString()) 
                 console.log('DEBUG UserContext loginWithGoogle recibido token:', data.token)
                 return { success: true }
             } else {
-                // Captura el mensaje exacto del servidor (ej: "ya existe esta cuenta")
                 return { success: false, message: data.message }
             }
         } catch (error) {
@@ -65,7 +68,7 @@ export const UserProvider = ({ children }) => {
     }
 
     // ==========================================
-    // REGISTRO MANUAL (Ahora con todos los campos)
+    // REGISTRO MANUAL
     // ==========================================
     const register = async (userEmail, password, name, apellido, edad) => {
         try {
@@ -95,7 +98,7 @@ export const UserProvider = ({ children }) => {
     }
 
     // ==========================================
-    // LOGIN MANUAL (Conexión Real Backend)
+    // LOGIN MANUAL
     // ==========================================
     const login = async (userEmail, password) => {
         try {
@@ -137,7 +140,18 @@ export const UserProvider = ({ children }) => {
     }
 
     return (
-        <UserContext.Provider value={{ token, email, id, login, register, logout, getProfile, loginWithGoogle }}>
+        <UserContext.Provider value={{ 
+            token, 
+            email, 
+            id, 
+            user, 
+            isAdmin, 
+            login, 
+            register, 
+            logout, 
+            getProfile, 
+            loginWithGoogle 
+        }}>
             {children}
         </UserContext.Provider>
     )

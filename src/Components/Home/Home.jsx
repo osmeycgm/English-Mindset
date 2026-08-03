@@ -1,7 +1,5 @@
 import { useState, useEffect, useMemo, memo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
-// IMPORTACIÓN ACTUALIZADA: Traemos homeClubs en lugar de clubs
 import { servicios, testimonios, homeClubs } from "../../servicios"; 
 import { CardServicio } from "./CardServicio/CardServicio";
 import { Header } from "./Header/Header";
@@ -30,20 +28,37 @@ const useFadeIn = (threshold = 0.1) => {
   return { setRef, isVisible };
 };
 
+// ─── HOOK PARA DETECTAR MOBILE ──────────────────────────────────────────────
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 600);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return isMobile;
+};
+
 // ─── COMPONENTE SLIDER MEMOIZADO ────────────────────────────────────────────
 const SectionSlider = memo(({ title, subtitle, items, onAdd }) => {
+  const isMobile = useIsMobile();
+  const VISIBLE = isMobile ? 1 : 2;  // ← 1 en mobile, 2 en desktop
   const [index, setIndex] = useState(0);
-  const VISIBLE = 2;
   const total = items.length;
   const { setRef, isVisible } = useFadeIn(0.2);
 
   const prev = useCallback(() => {
     setIndex(i => (i === 0 ? total - VISIBLE : i - 1));
-  }, [total]);
+  }, [total, VISIBLE]);
 
   const next = useCallback(() => {
     setIndex(i => (i >= total - VISIBLE ? 0 : i + 1));
-  }, [total]);
+  }, [total, VISIBLE]);
+
+  // Resetea el index cuando cambia VISIBLE para evitar índices fuera de rango
+  useEffect(() => {
+    setIndex(0);
+  }, [VISIBLE]);
 
   const visibleItems = items.slice(index, index + VISIBLE);
 
@@ -65,7 +80,7 @@ const SectionSlider = memo(({ title, subtitle, items, onAdd }) => {
           ref={setRef}
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr",
+            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",  // ← 1 columna en mobile
             gap: "20px",
             flex: 1,
             overflow: "hidden",
@@ -85,7 +100,7 @@ const SectionSlider = memo(({ title, subtitle, items, onAdd }) => {
       </div>
 
       <div style={{ display: "flex", justifyContent: "center", gap: "6px", marginTop: "12px" }}>
-        {Array.from({ length: total - VISIBLE + 1 }).map((_, i) => (
+        {Array.from({ length: Math.max(total - VISIBLE + 1, 1) }).map((_, i) => (
           <span
             key={i}
             onClick={() => setIndex(i)}
@@ -148,7 +163,6 @@ const ConversationClubs = memo(({ onAdd }) => {
             transition: "opacity 0.8s ease-out, transform 0.8s ease-out"
           }}
         >
-          {/* MAPEAMOS homeClubs AQUÍ */}
           {homeClubs.map((club) => (
             <div key={club.id} className="col-12 col-xl-6">
               <div

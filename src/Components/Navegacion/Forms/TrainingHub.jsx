@@ -3,14 +3,10 @@ import { useUser } from "../../Context/UserContext"
 import { Link, useNavigate } from "react-router-dom" //
 
 const TrainingHub = () => {
-    const { token, user } = useUser() //
-    const navigate = useNavigate() // 🔥 Instanciamos navigate para controlar la redirección
+const { token, user, hasActivePlan } = useUser()
+  const navigate = useNavigate()
 
-    // 💡 INTERRUPTOR DE ACCESO REAL: 
-    // En producción esto debe ser: const tieneCursoPagado = user?.hasActivePlan || false;
-    // Por ahora lo forzamos a 'true' para que puedas ver el mapa y programar.
-    const { token, hasActivePlan } = useUser()
-const tieneCursoPagado = hasActivePlan //
+  const tieneCursoPagado = hasActivePlan || false
     const linkGoogleMeet = "https://meet.google.com/abc-defg-hij"; //
 
     // ESTADOS DE NAVEGACIÓN (macro, micro, unit-detail, exam)
