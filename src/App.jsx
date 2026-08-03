@@ -37,7 +37,7 @@ function App() {
         
         {/* Rutas de Contenido Académico e Informativo */}
         <Route path="/planes" element={<Planes />} />
-        <Route path="/Training Hub" element={<TrainingHub />} />
+        <Route path="/traininghub" element={<TrainingHub />} />
         <Route path="/Testing0" element={<Testing0 />} />
         <Route path="/contacto" element={<ContactoPage />} />
         <Route path="/cart" element={<Cart />} />
