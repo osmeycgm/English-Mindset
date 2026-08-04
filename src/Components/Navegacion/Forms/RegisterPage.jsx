@@ -194,7 +194,7 @@ export const RegisterPage = () => {
               
               <button type="submit" className="btn w-100 fw-bold py-2.5" 
                 style={{ backgroundColor: "#1e3a8a", color: "#fff", border: "none", borderRadius: "10px", boxShadow: "0 4px 6px rgba(30, 58, 138, 0.2)" }}>
-                Sign Up
+                Registrate
               </button>
             </form>
             
