@@ -299,10 +299,8 @@ app.post('/api/orders/transferencia', verificarToken, upload.single('comprobante
     let parsedCartItems = [];
     try { parsedCartItems = cartItems ? JSON.parse(cartItems) : []; } catch { parsedCartItems = []; }
 
-    // Determinar la URL base dinámica para Railway/Local
     const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
     
-    // Generar Tokens de Acción para el Correo (Válidos por 7 días)
     const tokenActivar = jwt.sign({ userId: clientId, email: clientEmail, action: 'activate' }, process.env.JWT_SECRET, { expiresIn: '7d' });
     const tokenDesactivar = jwt.sign({ userId: clientId, email: clientEmail, action: 'deactivate' }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
@@ -395,7 +393,7 @@ app.post('/api/orders/crypto', verificarToken, async (req, res) => {
 });
 
 // ─── 8. ADMIN: CAMBIAR ESTADO DESDE CORREO ────────────────────────────────────
-app.get('/api/admin/change-status', (req, res) => {
+app.get('/api/admin/change-status', async (req, res) => {
     const { token } = req.query;
     if (!token) {
         return res.status(400).send('<h1 style="color:red; font-family:sans-serif; text-align:center; margin-top:50px;">Error: Token no proporcionado.</h1>');
@@ -405,8 +403,12 @@ app.get('/api/admin/change-status', (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const { userId, email, action } = decoded;
 
-        // Buscar usuario en memoria por id o por email
-        const user = users.find(u => u.id === userId || u.email === email);
+        // NUEVO: Buscar usuario ignorando mayúsculas y minúsculas
+        const user = users.find(u => 
+            u.id === userId || 
+            (u.email && email && u.email.toLowerCase() === email.toLowerCase())
+        );
+
         if (!user) {
             return res.status(404).send(`
                 <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
@@ -420,6 +422,35 @@ app.get('/api/admin/change-status', (req, res) => {
         user.hasActivePlan = isActivating;
 
         console.log(`⚙️ ADMIN ACTION: ${user.email} -> hasActivePlan = ${isActivating}`);
+
+        // NUEVO: Enviar correo de notificación al cliente al activar el plan
+        if (isActivating && mailTransporter) {
+            try {
+                // Generamos la URL del frontend para que el cliente pueda hacer click e ir directo a la app
+                const frontendURL = 'https://english-mindset-production.up.railway.app'; 
+
+                await mailTransporter.sendMail({
+                    from: `"English Mindset" <${SMTP_USER}>`,
+                    to: user.email,
+                    subject: "🎉 ¡Tu plan ha sido activado con éxito!",
+                    html: `
+                        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                            <h2 style="color: #16a34a;">¡Bienvenido a English Mindset!</h2>
+                            <p>Hola <strong>${user.name || ''}</strong>,</p>
+                            <p>Nos alegra informarte que tu pago ha sido verificado y <strong>tu plan ya se encuentra ACTIVO</strong>.</p>
+                            <p>Ya puedes acceder a todo el contenido exclusivo en nuestra plataforma.</p>
+                            <a href="${frontendURL}/training-hub" 
+                               style="background: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-top: 15px;">
+                               Ir al Training Hub
+                            </a>
+                        </div>
+                    `
+                });
+                console.log(`✅ Correo de activación enviado con éxito al cliente: ${user.email}`);
+            } catch (emailErr) {
+                console.error("Error enviando correo de confirmación al cliente:", emailErr);
+            }
+        }
 
         res.send(`
             <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px; padding: 20px;">
@@ -470,7 +501,113 @@ app.get('/api/admin/users', (req, res) => {
         id: u.id, email: u.email, name: u.name, hasActivePlan: u.hasActivePlan, provider: u.provider
     }))});
 });
+// ─── 11. RECUPERACIÓN DE CONTRASEÑA ───────────────────────────────────────────
 
+// Endpoint A: Solicitar enlace de recuperación por correo
+app.post('/api/auth/forgot-password', async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({ success: false, message: "El correo electrónico es obligatorio." });
+    }
+
+    // Buscamos ignorando mayúsculas/minúsculas
+    const user = users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
+    
+    if (!user) {
+        return res.status(404).json({ success: false, message: "No existe ninguna cuenta registrada con este correo." });
+    }
+
+    if (user.provider === 'google') {
+        return res.status(400).json({ 
+            success: false, 
+            message: "Esta cuenta se registró utilizando Google. Por favor, inicia sesión con el botón de Google." 
+        });
+    }
+
+    // Generar Token JWT válido por 1 hora
+    const resetToken = jwt.sign(
+        { userId: user.id, email: user.email, action: 'reset_password' },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+    );
+
+    // URL base del frontend
+    const frontendUrl = process.env.FRONTEND_URL || 'https://english-mindset-production.up.railway.app';
+    const resetLink = `${frontendUrl}/#/reset-password?token=${resetToken}`;
+
+    if (!mailTransporter) {
+        return res.status(500).json({ success: false, message: "El servicio de correos no está disponible en el servidor." });
+    }
+
+    try {
+        await mailTransporter.sendMail({
+            from: `"English Mindset" <${SMTP_USER}>`,
+            to: user.email,
+            subject: "🔑 Restablecer tu contraseña - English Mindset",
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 25px; color: #333; max-width: 600px; border: 1px solid #e2e8f0; border-radius: 12px; margin: 0 auto;">
+                    <h2 style="color: #1e3a8a; margin-top: 0;">Restablecimiento de Contraseña</h2>
+                    <p>Hola <strong>${user.name || 'Estudiante'}</strong>,</p>
+                    <p>Recibimos una solicitud para cambiar la contraseña asociada a tu cuenta en <strong>English Mindset</strong>.</p>
+                    <p>Haz clic en el siguiente botón para crear tu nueva contraseña. Este enlace expira en <strong>1 hora</strong>:</p>
+                    
+                    <div style="margin: 30px 0; text-align: center;">
+                        <a href="${resetLink}" 
+                           style="background-color: #1e3a8a; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(30, 58, 138, 0.2);">
+                            Crear Nueva Contraseña
+                        </a>
+                    </div>
+                    
+                    <p style="font-size: 0.85rem; color: #64748b; line-height: 1.5;">
+                        Si no solicitaste este cambio, puedes ignorar este mensaje de forma segura. Tu contraseña actual no cambiará.
+                    </p>
+                </div>
+            `
+        });
+
+        console.log(`✉️ Correo de recuperación enviado a: ${user.email}`);
+        res.json({ success: true, message: "Hemos enviado las instrucciones a tu correo electrónico." });
+    } catch (error) {
+        console.error("Error al enviar correo de recuperación:", error);
+        res.status(500).json({ success: false, message: "Ocurrió un error al intentar enviar el correo." });
+    }
+});
+
+// Endpoint B: Procesar la nueva contraseña con el token
+app.post('/api/auth/reset-password', (req, res) => {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+        return res.status(400).json({ success: false, message: "Faltan datos obligatorios." });
+    }
+
+    if (newPassword.length < 6) {
+        return res.status(400).json({ success: false, message: "La nueva contraseña debe tener al menos 6 caracteres." });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        if (decoded.action !== 'reset_password') {
+            return res.status(400).json({ success: false, message: "Token o acción no válida." });
+        }
+
+        const user = users.find(u => u.id === decoded.userId || (u.email && u.email.toLowerCase() === decoded.email.toLowerCase()));
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: "Usuario no encontrado." });
+        }
+
+        // Actualizamos la contraseña
+        user.password = newPassword;
+        console.log(`🔑 Contraseña actualizada exitosamente para: ${user.email}`);
+
+        res.json({ success: true, message: "Tu contraseña ha sido restablecida con éxito." });
+    } catch (error) {
+        console.error("Error al restablecer contraseña:", error);
+        res.status(401).json({ success: false, message: "El enlace es inválido o ha expirado (validez de 1 hora)." });
+    }
+});
 // ─── INICIAR SERVIDOR ─────────────────────────────────────────────────────────
 app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);

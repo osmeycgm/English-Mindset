@@ -21,6 +21,8 @@ import TrainingHub from './Components/Navegacion/Forms/TrainingHub'
 import Testing0 from './Components/Navegacion/Forms/Testing0'
 import AdminRoute from './Components/AdminRoute'
 import AdminDashboard from './Components/AdminDashboard'
+import ForgotPasswordPage from './Components/Auth/ForgotPasswordPage'
+import ResetPasswordPage from './Components/Auth/ResetPasswordPage'
 
 function App() {
   const { token } = useUser()
@@ -34,7 +36,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={!token ? <LoginPage /> : <Navigate to="/" />} />
         <Route path="/register" element={!token ? <RegisterPage /> : <Navigate to="/" />} />
-        
+
         {/* Rutas de Contenido Académico e Informativo */}
         <Route path="/planes" element={<Planes />} />
         <Route path="/traininghub" element={<TrainingHub />} />
@@ -42,13 +44,15 @@ function App() {
         <Route path="/contacto" element={<ContactoPage />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/test" element={<Test />} />
-        <Route path="/testing" element={<Testing/>} />
-        
+        <Route path="/testing" element={<Testing />} />
+        <Route path="/recuperar-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage/>} />
+
         {/* 🚀 NUEVA RUTA: Metodología Interactiva */}
         <Route path="/metodologia" element={<Metodologia />} />
 
         {/* Ruta para ver el detalle dinámico de un curso específico */}
-     
+
 
         {/* Rutas Protegidas (Solo accesibles con sesión activa) */}
         <Route path="/profile" element={token ? <Profile /> : <Navigate to="/login" />} />
@@ -57,9 +61,9 @@ function App() {
         <Route path="*" element={<NotFound />} />
 
         {/* ─── RUTAS PROTEGIDAS / ADMINISTRADOR ─── */}
-        <Route element={<AdminRoute/>}>
-        <Route path="/admin" element={<AdminDashboard />} />
-      </Route>
+        <Route element={<AdminRoute />}>
+          <Route path="/admin" element={<AdminDashboard />} />
+        </Route>
       </Routes>
       <Footer />
     </>

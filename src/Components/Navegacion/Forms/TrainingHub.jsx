@@ -1,12 +1,13 @@
 import { useState, useRef } from "react"
-import { useUser } from "../../Context/UserContext" 
+import { useUser } from "../../Context/UserContext"
 import { Link, useNavigate } from "react-router-dom" //
+import Unit from "./Units/Unit1"
 
 const TrainingHub = () => {
-const { token, user, hasActivePlan } = useUser()
-  const navigate = useNavigate()
+    const { token, user, hasActivePlan } = useUser()
+    const navigate = useNavigate()
 
-  const tieneCursoPagado = hasActivePlan || false
+    const tieneCursoPagado = hasActivePlan || false
     const linkGoogleMeet = "https://meet.google.com/abc-defg-hij"; //
 
     // ESTADOS DE NAVEGACIÓN (macro, micro, unit-detail, exam)
@@ -31,12 +32,12 @@ const { token, user, hasActivePlan } = useUser()
         id: i + 1,
         title: `Unidad ${String(i + 1).padStart(2, '0')}`,
         subtitle: [
-            "Mindset Tuning", "Breaking Ice", "Deep Dive", "Hadal Core", 
+            "Mindset Tuning", "Breaking Ice", "Deep Dive", "Hadal Core",
             "Speed Boost", "Natural Flow", "Clarity Lab", "Global Voice"
         ][i % 8],
         duration: "1 Semana de Inmersión",
         image: `https://images.unsplash.com/photo-${[
-            "1618005182384-a83a8bd57fbe", "1634017839464-5c339ebe3cb4", 
+            "1618005182384-a83a8bd57fbe", "1634017839464-5c339ebe3cb4",
             "1614741118887-7a4ee193a5fa", "1579783900882-c0d3dad7b119"
         ][i % 4]}?auto=format&fit=crop&w=600&q=80`
     })) //
@@ -50,7 +51,7 @@ const { token, user, hasActivePlan } = useUser()
 
     const handleEntrarNivel = (nivel) => {
         if (nivel.status === "locked") return; //
-        
+
         // Si es el examen de nivelación, lo enviamos a su vista dedicada
         if (nivel.isExam) {
             setVistaActual("exam"); //
@@ -76,77 +77,77 @@ const { token, user, hasActivePlan } = useUser()
     }
 
     // ─── CASO 1: INVITADO ──────────────────────────────────────────────────
-   if (!token) {
-    return (
-        <div style={{
-            minHeight: "100vh",
-            background: "radial-gradient(circle at 50% 0%, #1e3a8a 0%, #0b1329 70%, #050a14 100%)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "40px 20px"
-        }}>
+    if (!token) {
+        return (
             <div style={{
-                background: "rgba(15, 23, 42, 0.6)",
-                backdropFilter: "blur(16px)",
-                border: "1px solid rgba(56, 189, 248, 0.15)",
-                borderRadius: "24px",
-                boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
-                padding: "3rem",
-                maxWidth: "36rem",
-                width: "100%",
-                textAlign: "center"
+                minHeight: "100vh",
+                background: "radial-gradient(circle at 50% 0%, #1e3a8a 0%, #0b1329 70%, #050a14 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "40px 20px"
             }}>
-                {/* Ícono */}
                 <div style={{
-                    width: "70px", height: "70px", borderRadius: "50%",
-                    background: "linear-gradient(135deg, #1e3a8a 0%, #0284c7 100%)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    boxShadow: "0 0 25px rgba(2,132,199,0.45)",
-                    border: "1px solid rgba(56,189,248,0.2)",
-                    margin: "0 auto 1.5rem auto"
+                    background: "rgba(15, 23, 42, 0.6)",
+                    backdropFilter: "blur(16px)",
+                    border: "1px solid rgba(56, 189, 248, 0.15)",
+                    borderRadius: "24px",
+                    boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
+                    padding: "3rem",
+                    maxWidth: "36rem",
+                    width: "100%",
+                    textAlign: "center"
                 }}>
-                    <i className="bi bi-rocket-takeoff" style={{ fontSize: "1.8rem", color: "#38bdf8" }} />
-                </div>
-
-                <h2 style={{ fontWeight: 900, color: "#ffffff", marginBottom: "1rem" }}>
-                    Expande tus Capacidades
-                </h2>
-                <p style={{ color: "rgba(255,255,255,0.85)", marginBottom: "2rem", lineHeight: 1.7 }}>
-                    Aquí podrás tener el contenido guía y de trabajo estratégico para tu viaje hacia el dominio definitivo del inglés. Inicia sesión para desbloquear tu mapa de entrenamiento.
-                </p>
-
-                {/* Botones */}
-                <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
-                    <Link to="/login" style={{
-                        padding: "12px 28px",
-                        border: "2px solid rgba(255,255,255,0.4)",
-                        borderRadius: "12px",
-                        color: "#ffffff",
-                        fontWeight: 700,
-                        textDecoration: "none",
-                        backgroundColor: "transparent",
-                        transition: "0.3s"
+                    {/* Ícono */}
+                    <div style={{
+                        width: "70px", height: "70px", borderRadius: "50%",
+                        background: "linear-gradient(135deg, #1e3a8a 0%, #0284c7 100%)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        boxShadow: "0 0 25px rgba(2,132,199,0.45)",
+                        border: "1px solid rgba(56,189,248,0.2)",
+                        margin: "0 auto 1.5rem auto"
                     }}>
-                        Iniciar Sesión
-                    </Link>
-                    <Link to="/planes" style={{
-                        padding: "12px 28px",
-                        background: "linear-gradient(135deg, #2563eb 0%, #0284c7 100%)",
-                        borderRadius: "12px",
-                        color: "#ffffff",
-                        fontWeight: 700,
-                        textDecoration: "none",
-                        border: "none",
-                        boxShadow: "0 0 15px rgba(37,99,235,0.4)"
-                    }}>
-                        Comenzar mi Viaje
-                    </Link>
+                        <i className="bi bi-rocket-takeoff" style={{ fontSize: "1.8rem", color: "#38bdf8" }} />
+                    </div>
+
+                    <h2 style={{ fontWeight: 900, color: "#ffffff", marginBottom: "1rem" }}>
+                        Expande tus Capacidades
+                    </h2>
+                    <p style={{ color: "rgba(255,255,255,0.85)", marginBottom: "2rem", lineHeight: 1.7 }}>
+                        Aquí podrás tener el contenido guía y de trabajo estratégico para tu viaje hacia el dominio definitivo del inglés. Inicia sesión para desbloquear tu mapa de entrenamiento.
+                    </p>
+
+                    {/* Botones */}
+                    <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
+                        <Link to="/login" style={{
+                            padding: "12px 28px",
+                            border: "2px solid rgba(255,255,255,0.4)",
+                            borderRadius: "12px",
+                            color: "#ffffff",
+                            fontWeight: 700,
+                            textDecoration: "none",
+                            backgroundColor: "transparent",
+                            transition: "0.3s"
+                        }}>
+                            Iniciar Sesión
+                        </Link>
+                        <Link to="/planes" style={{
+                            padding: "12px 28px",
+                            background: "linear-gradient(135deg, #2563eb 0%, #0284c7 100%)",
+                            borderRadius: "12px",
+                            color: "#ffffff",
+                            fontWeight: 700,
+                            textDecoration: "none",
+                            border: "none",
+                            boxShadow: "0 0 15px rgba(37,99,235,0.4)"
+                        }}>
+                            Comenzar mi Viaje
+                        </Link>
+                    </div>
                 </div>
             </div>
-        </div>
-    )
-}
+        )
+    }
 
     // ─── CASO 2: LOGGEADO SIN PLAN (AQUÍ ESTÁ EL BLOQUEO REAL) ─────────────
     if (token && !tieneCursoPagado) { //
@@ -183,15 +184,15 @@ const { token, user, hasActivePlan } = useUser()
 
                         {/* Contenedor del Mapa del Tesoro */}
                         <div className="position-relative d-flex flex-column align-items-center gap-5 my-5">
-                            
+
                             {/* SVG Línea Curva Fina Conectora */}
                             <svg className="d-none d-md-block position-absolute w-100 h-100" style={{ top: 0, left: 0, pointerEvents: "none", zIndex: 0 }}>
-                                <path 
-                                    d="M 600, 50 Q 250, 180 600, 320 T 600, 600 T 600, 880" 
-                                    fill="none" 
-                                    stroke="#38bdf8" 
-                                    strokeWidth="2" 
-                                    strokeDasharray="8,8" 
+                                <path
+                                    d="M 600, 50 Q 250, 180 600, 320 T 600, 600 T 600, 880"
+                                    fill="none"
+                                    stroke="#38bdf8"
+                                    strokeWidth="2"
+                                    strokeDasharray="8,8"
                                     opacity="0.4"
                                 />
                             </svg>
@@ -202,12 +203,12 @@ const { token, user, hasActivePlan } = useUser()
                                 const isExam = nivel.isExam; //
 
                                 return (
-                                    <div 
+                                    <div
                                         key={nivel.id}
                                         className={`d-flex w-100 justify-content-md-${esPar ? "start" : "end"} justify-content-center position-relative`}
                                         style={{ zIndex: 2 }}
                                     >
-                                        <div 
+                                        <div
                                             className={`island-node text-center p-4 ${estaBloqueado ? "locked-node" : "active-node"} ${isExam ? "exam-node" : ""}`}
                                             onClick={() => handleEntrarNivel(nivel)}
                                         >
@@ -221,7 +222,7 @@ const { token, user, hasActivePlan } = useUser()
                                             <div className="node-badge" style={{ backgroundColor: isExam ? "#f59e0b" : "#0284c7" }}>{nivel.duration}</div>
                                             <h4 className={`fw-bold mb-2 ${isExam ? "text-warning" : "text-white"}`}>{nivel.name}</h4>
                                             <p className="text-blue-200 small m-0 px-2">{nivel.desc}</p>
-                                            
+
                                             {!estaBloqueado ? (
                                                 <div className="node-action mt-3 small fw-bold text-cyan">
                                                     {isExam ? "Iniciar Examen" : "Entrar a la Isla"} <i className="bi bi-arrow-right ms-1" />
@@ -253,10 +254,10 @@ const { token, user, hasActivePlan } = useUser()
                                 <p className="text-blue-200 mb-5">
                                     Aquí montaremos la interfaz estilo Kahoot interactivo para evaluar tu nivel exacto. Asegúrate de tener audio activado y estar en un lugar tranquilo.
                                 </p>
-                                
+
                                 {/* 🔥 Se cambió la alerta por navigate a la ruta correspondiente */}
-                                <button 
-                                    className="btn btn-warning fw-bold py-3 px-5 rounded-pill shadow-glow text-dark fs-5 w-100" 
+                                <button
+                                    className="btn btn-warning fw-bold py-3 px-5 rounded-pill shadow-glow text-dark fs-5 w-100"
                                     onClick={() => navigate("/testing0")}
                                 >
                                     <i className="bi bi-play-fill me-2" /> Comenzar Test Ahora
@@ -281,7 +282,7 @@ const { token, user, hasActivePlan } = useUser()
                                     <h1 className="fw-bold mb-2">{nivelSeleccionado?.name}</h1>
                                     <p className="text-white-50 mb-0">Gestiona tus unidades de estudio autónomo de Cambridge abajo y asiste a tus clases presenciales sincronizadas.</p>
                                 </div>
-                                
+
                                 {/* CAJA INTEGRADA DE GOOGLE MEET */}
                                 <div className="col-12 col-lg-4 mt-4 mt-lg-0 text-center text-lg-end">
                                     <div className="p-3 rounded-3 bg-white bg-opacity-10 backdrop-blur" style={{ border: "1px solid rgba(255,255,255,0.15)" }}>
@@ -292,10 +293,10 @@ const { token, user, hasActivePlan } = useUser()
                                             </span>
                                             <span className="small fw-bold text-uppercase tracking-wider text-white">Sala Virtual Activa</span>
                                         </div>
-                                        <a 
-                                            href={linkGoogleMeet} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer" 
+                                        <a
+                                            href={linkGoogleMeet}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
                                             className="btn btn-success w-100 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 py-2"
                                             style={{ borderRadius: "10px" }}
                                         >
@@ -312,7 +313,7 @@ const { token, user, hasActivePlan } = useUser()
                             <h3 className="fw-bold text-white mb-4 tracking-tight">
                                 <i className="bi bi-grid-3x3-gap-fill me-2 text-cyan" /> Unidades Disponibles
                             </h3>
-                            
+
                             <div className="position-relative">
                                 {/* Flecha Izquierda */}
                                 <button className="carousel-control left d-none d-md-flex" onClick={() => scrollCarousel('left')}>
@@ -321,8 +322,8 @@ const { token, user, hasActivePlan } = useUser()
 
                                 <div className="netflix-row" ref={carouselRef}>
                                     {unidadesMock.map((unidad) => (
-                                        <div 
-                                            key={unidad.id} 
+                                        <div
+                                            key={unidad.id}
                                             className="netflix-card"
                                             onClick={() => handleEntrarUnidad(unidad)}
                                         >
@@ -348,44 +349,12 @@ const { token, user, hasActivePlan } = useUser()
                     </div>
                 )}
 
-                {/* 📖 VISTA DETALLE: ESPACIO COMPLETO DE LA UNIDAD SELECCIONADA */}
+                {/* 📖 VISTA DETALLE — delegada al componente Unit */}
                 {vistaActual === "unit-detail" && (
-                    <div className="animate__animated animate__fadeInUp">
-                        <button className="btn-back mb-4" onClick={() => setVistaActual("micro")}>
-                            <i className="bi bi-chevron-left" /> Volver a las Unidades
-                        </button>
-
-                        <div className="glass-card p-4 p-md-5">
-                            <div className="border-bottom border-secondary border-opacity-20 pb-4 mb-4 text-center text-md-start">
-                                <span className="text-cyan small fw-bold tracking-widest text-uppercase">Entrenamiento Abierto</span>
-                                <h2 className="fw-black text-white m-0 text-uppercase tracking-wide" style={{ fontSize: "2.5rem" }}>
-                                    {unidadSeleccionada?.title} — {unidadSeleccionada?.subtitle}
-                                </h2>
-                                <p className="text-blue-200 m-0 mt-2">Aquí se montará el set completo de actividades con el sello de English Mindset.</p>
-                            </div>
-
-                            {/* Lista de Trabajo Interno */}
-                            <div className="d-flex flex-column gap-3">
-                                {actividadesMock.map((act) => (
-                                    <div 
-                                        key={act.id} 
-                                        className="activity-strip d-flex align-items-center justify-content-between p-3"
-                                        onClick={() => alert(`Iniciando panel táctico interactivo para: ${act.title}`)}
-                                    >
-                                        <div className="d-flex align-items-center gap-3 text-truncate">
-                                            <div className={`activity-icon-box ${act.type}`}>
-                                                <i className={`bi ${act.type === 'video' ? 'bi-play-fill' : act.type === 'pdf' ? 'bi-file-earmark-pdf' : act.type === 'audio' ? 'bi-headphones' : 'bi-lightning-fill'}`} />
-                                            </div>
-                                            <span className="text-white fw-semibold text-truncate small">{act.title}</span>
-                                        </div>
-                                        <span className="badge bg-dark bg-opacity-40 text-blue-200 border border-secondary border-opacity-20 px-3 py-2 rounded-pill small">
-                                            {act.duration}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
+                    <Unit
+                        unidad={unidadSeleccionada}
+                        onVolver={() => setVistaActual("micro")}
+                    />
                 )}
 
             </div>

@@ -4,29 +4,42 @@ import { useUser } from "../../Context/UserContext"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
+import { getRandomFact } from "../../../data/mindsetFacts";
 
 export const LoginPage = () => {
   const [mensaje, setMensaje] = useState("")
   const [tipo, setTipo] = useState("")
   const [email, setEmail] = useState("")
   const [contraseña, setContraseña] = useState("")
-    const [searchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
+  
+  // Estado para almacenar el Fact aleatorio del catálogo global
+  const [mindsetFact, setMindsetFact] = useState({
+    category: "🧠 Mindset Fact",
+    title: "Cargando conocimiento...",
+    text: "..."
+  })
   
   const { login, loginWithGoogle } = useUser() 
   const navigate = useNavigate()
+
+  // Seleccionar un fact aleatorio al montar el componente
+  useEffect(() => {
+    setMindsetFact(getRandomFact());
+  }, []);
 
   // Si viene de un intento de registro con cuenta existente, mostrar mensaje
   useEffect(() => {
     if (searchParams.get("existente") === "true") {
       setTipo("info");
       setMensaje("Esta cuenta ya existe. Por favor, inicia sesión para continuar.");
-      // Limpiar el parámetro de la URL después de leer el mensaje
       const timer = setTimeout(() => {
         navigate("/login", { replace: true });
       }, 5000);
       return () => clearTimeout(timer);
     }
   }, [searchParams, navigate])
+
   const handleGoogleSuccess = async (credentialResponse) => {
     const tokenGoogle = credentialResponse.credential;
     const infoUsuario = jwtDecode(tokenGoogle);
@@ -78,7 +91,7 @@ export const LoginPage = () => {
               <p className="text-muted small">Accede a tus clases y material exclusivo</p>
             </div>
 
-            {/* BOTÓN OFICIAL DE GOOGLE (ESTILO AESTHETIC) */}
+            {/* BOTÓN OFICIAL DE GOOGLE */}
             <div className="d-flex justify-content-center mb-2" 
                  style={{ filter: "drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.08))", transition: "all 0.2s ease" }}>
               <GoogleLogin
@@ -89,7 +102,7 @@ export const LoginPage = () => {
                 }}
                 theme="outline"
                 size="large"
-                shape="pill" // Bordes redondeados modernos
+                shape="pill"
                 width="380"
                 text="signin_with"
               />
@@ -120,7 +133,13 @@ export const LoginPage = () => {
               </div>
               
               <div className="mb-4 text-start">
-                <label className="form-label small fw-bold" style={{ color: "#475569" }}>Contraseña</label>
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <label className="form-label small fw-bold mb-0" style={{ color: "#475569" }}>Contraseña</label>
+                  <span onClick={() => navigate("/recuperar-password")} 
+                        style={{ color: "#0284c7", fontSize: "0.8rem", cursor: "pointer", textDecoration: "none", fontWeight: "500" }}>
+                    ¿Olvidaste tu contraseña?
+                  </span>
+                </div>
                 <input 
                   type="password" 
                   className="form-control py-2.5 px-3" 
@@ -133,7 +152,7 @@ export const LoginPage = () => {
               
               <button type="submit" className="btn w-100 fw-bold py-2.5" 
                       style={{ backgroundColor: "#1e3a8a", color: "#fff", border: "none", borderRadius: "10px", boxShadow: "0 4px 6px rgba(30, 58, 138, 0.2)" }}>
-                Sign In
+                Iniciar Sesión
               </button>
             </form>
             
@@ -145,21 +164,21 @@ export const LoginPage = () => {
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: SECCIÓN INFORMATIVA */}
+        {/* COLUMNA DERECHA: SECCIÓN INFORMATIVA DINÁMICA */}
         <div className="col-md-6 d-none d-md-flex flex-column align-items-start justify-content-center p-5 text-white position-relative" 
           style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #0369a1 100%)", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: "-10%", right: "-10%", width: "300px", height: "300px", borderRadius: "50%", background: "rgba(255,255,255,0.03)" }}></div>
           <div style={{ position: "absolute", bottom: "-5%", left: "-5%", width: "200px", height: "200px", borderRadius: "50%", background: "rgba(255,255,255,0.03)" }}></div>
 
-          <div style={{ maxWidth: "85%", zIndex: 10 }}>
+          <div style={{ maxWidth: "85%", zIndex: 10, transition: "opacity 0.5s ease-in-out" }}>
             <span style={{ backgroundColor: "rgba(255, 255, 255, 0.15)", padding: "6px 16px", borderRadius: "20px", fontSize: "0.8rem", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }} className="mb-4 d-inline-block">
-              🧠 Mindset Fact
+              {mindsetFact.category || "🧠 Mindset Fact"}
             </span>
-            <h3 className="fw-bold mb-3 lh-base" style={{ fontSize: "2rem" }}>
-              "Pensar en otro idioma te hace tomar decisiones más racionales."
+            <h3 className="fw-bold mb-3 lh-base" style={{ fontSize: "1.9rem" }}>
+              {mindsetFact.title}
             </h3>
             <p style={{ color: "#e0f2fe", fontSize: "1.05rem", lineHeight: "1.6" }} className="fw-light">
-              Estudios científicos de la Universidad de Chicago demuestran que al procesar problemas en una segunda lengua, tu cerebro reduce los sesgos emocionales y automáticos. Al eliminar la traducción mental, analizas los riesgos de forma mucho más analítica, lógica y clara.
+              {mindsetFact.text}
             </p>
           </div>
         </div>

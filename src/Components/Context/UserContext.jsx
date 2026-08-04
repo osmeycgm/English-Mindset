@@ -14,6 +14,9 @@ export const UserProvider = ({ children }) => {
     const [token, setToken] = useState(() => localStorage.getItem("em_token") || null)
     const [email, setEmail] = useState(() => localStorage.getItem("em_email") || null)
     const [id, setId] = useState(() => localStorage.getItem("em_id") || null)
+    
+    // NUEVO: Estado del plan para desbloquear TrainingHub
+    const [hasActivePlan, setHasActivePlan] = useState(false);
 
     // Evaluar si el usuario actual es Administrador
     const isAdmin = email === 'osmey009@gmail.com';
@@ -21,7 +24,40 @@ export const UserProvider = ({ children }) => {
     // Objeto user para componentes que requieran la estructura { id, email }
     const user = token ? { id, email } : null;
 
+    // ==========================================
+    // SINCRONIZAR PERFIL CON BACKEND
+    // ==========================================
+    const fetchUserProfile = async () => {
+        if (!token) return;
+        try {
+            const response = await fetch(`${API_URL}/api/auth/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                setHasActivePlan(data.user.hasActivePlan);
+            } else if (response.status === 401) {
+                // Si el token expiró, cerramos la sesión automáticamente
+                logout();
+            }
+        } catch (error) {
+            console.error("Error al sincronizar estado del plan:", error);
+        }
+    };
+
+    // Consultar el estado cada vez que el token cambie
+    useEffect(() => {
+        if (token) {
+            fetchUserProfile();
+        } else {
+            setHasActivePlan(false);
+        }
+    }, [token]);
+
+    // ==========================================
     // PERSISTENCIA DE LA SESIÓN
+    // ==========================================
     useEffect(() => {
         if (token) {
             console.log('DEBUG UserContext: guardando token en localStorage', token)
@@ -34,10 +70,6 @@ export const UserProvider = ({ children }) => {
             localStorage.removeItem("em_id")
         }
     }, [token, email, id])
-
-    useEffect(() => {
-        console.log('DEBUG UserContext: token cargado desde localStorage', token)
-    }, [])
 
     // ==========================================
     // INGRESO CON GOOGLE
@@ -56,7 +88,7 @@ export const UserProvider = ({ children }) => {
                 setToken(data.token)
                 setEmail(userEmail)
                 setId(data.user?.id || Date.now().toString()) 
-                console.log('DEBUG UserContext loginWithGoogle recibido token:', data.token)
+                setHasActivePlan(data.user?.hasActivePlan || false) // Se establece instantáneamente
                 return { success: true }
             } else {
                 return { success: false, message: data.message }
@@ -85,7 +117,7 @@ export const UserProvider = ({ children }) => {
                     setToken(data.token)
                     setEmail(data.user?.email || userEmail)
                     setId(data.user?.id || Date.now().toString())
-                    console.log('DEBUG UserContext register recibido token:', data.token)
+                    setHasActivePlan(data.user?.hasActivePlan || false)
                 }
                 return { success: true, message: data.message }
             } else {
@@ -114,7 +146,7 @@ export const UserProvider = ({ children }) => {
                 setToken(data.token)
                 setEmail(data.user.email)
                 setId(data.user.id || Date.now().toString())
-                console.log('DEBUG UserContext login recibido token:', data.token)
+                setHasActivePlan(data.user?.hasActivePlan || false)
                 return { success: true }
             } else {
                 return { success: false, message: data.message }
@@ -132,6 +164,7 @@ export const UserProvider = ({ children }) => {
         setToken(null)
         setEmail(null)
         setId(null)
+        setHasActivePlan(false)
     }
 
     const getProfile = () => {
@@ -145,7 +178,9 @@ export const UserProvider = ({ children }) => {
             email, 
             id, 
             user, 
-            isAdmin, 
+            isAdmin,
+            hasActivePlan,      // Exponemos el estado del plan a toda la app
+            fetchUserProfile,   // Exponemos la función por si necesitas recargar manual
             login, 
             register, 
             logout, 

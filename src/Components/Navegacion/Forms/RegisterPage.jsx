@@ -1,24 +1,37 @@
 // src/Components/Auth/RegisterPage.jsx
-import { useState } from "react"
-import { useUser } from "../../Context/UserContext"
-import { useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react";
+import { useUser } from "../../Context/UserContext";
+import { useNavigate } from "react-router-dom";
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
+import { getRandomFact } from "../../../data/mindsetFacts";
 
 export const RegisterPage = () => {
-  const [mensaje, setMensaje] = useState("")
-  const [tipo, setTipo] = useState("")
+  const [mensaje, setMensaje] = useState("");
+  const [tipo, setTipo] = useState("");
   
-  // NUEVOS ESTADOS
-  const [nombre, setNombre] = useState("")
-  const [apellido, setApellido] = useState("")
-  const [edad, setEdad] = useState("")
-  const [email, setEmail] = useState("")
-  const [contraseña, setContraseña] = useState("")
-  const [confirmar, setConfirmar] = useState("")
-  
-  const { register, loginWithGoogle } = useUser()
-  const navigate = useNavigate()
+  // ESTADOS DEL FORMULARIO
+  const [nombre, setNombre] = useState("");
+  const [apellido, setApellido] = useState("");
+  const [edad, setEdad] = useState("");
+  const [email, setEmail] = useState("");
+  const [contraseña, setContraseña] = useState("");
+  const [confirmar, setConfirmar] = useState("");
+
+  // ESTADO PARA EL MINDSET FACT ALEATORIO CENTRALIZADO
+  const [mindsetFact, setMindsetFact] = useState({
+    category: "🚀 Neuroplasticidad",
+    title: '"Tu cerebro cambia físicamente al aprender inglés."',
+    text: "Aprender un segundo idioma activa la neuroplasticidad estructural..."
+  });
+
+  const { register, loginWithGoogle } = useUser();
+  const navigate = useNavigate();
+
+  // SELECCIONAR UN FACT ALEATORIO DESDE EL ARCHIVO AUXILIAR AL MONTAR
+  useEffect(() => {
+    setMindsetFact(getRandomFact());
+  }, []);
 
   const handleGoogleSuccess = async (credentialResponse) => {
     setMensaje("");
@@ -31,12 +44,11 @@ export const RegisterPage = () => {
     // Interceptamos si el backend nos avisa que el usuario ya se encuentra registrado
     const usuarioYaExiste = result?.message?.toLowerCase().includes("ya existe") || 
                             result?.message?.toLowerCase().includes("registrado") ||
-                            result?.isNewUser === false; // Por si tu backend maneja un flag booleano
+                            result?.isNewUser === false;
 
     if (usuarioYaExiste) {
-      // No mostrar mensaje en RegisterPage. Redirigir rápidamente al Login.
       setTimeout(() => navigate("/login?existente=true"), 300);
-      return; // Cortamos la ejecución aquí
+      return;
     }
 
     if (result && result.success) {
@@ -50,52 +62,53 @@ export const RegisterPage = () => {
   };
 
   const validarInput = async (e) => {
-    e.preventDefault()
-    setMensaje("")
+    e.preventDefault();
+    setMensaje("");
     
-    // Validamos que los nuevos campos no estén vacíos
     if (!nombre.trim() || !apellido.trim() || !edad.trim() || !email.trim() || !contraseña.trim() || !confirmar.trim()) {
-      setTipo("error"); setMensaje("Por favor, completa todos los campos"); return
+      setTipo("error"); setMensaje("Por favor, completa todos los campos"); return;
     }
     if (isNaN(edad) || Number(edad) < 1) {
-      setTipo("error"); setMensaje("Por favor ingresa una edad válida"); return
+      setTipo("error"); setMensaje("Por favor ingresa una edad válida"); return;
     }
     if (contraseña.length < 6) {
-      setTipo("error"); setMensaje("Mínimo 6 caracteres para tu seguridad"); return
+      setTipo("error"); setMensaje("Mínimo 6 caracteres para tu seguridad"); return;
     }
     if (contraseña !== confirmar) {
-      setTipo("error"); setMensaje("Las contraseñas no coinciden"); return
+      setTipo("error"); setMensaje("Las contraseñas no coinciden"); return;
     }
     
-    // Le pasamos los nuevos datos a la función register del Context
-    const result = await register(email, contraseña, nombre, apellido, edad)
+    const result = await register(email, contraseña, nombre, apellido, edad);
     if (result.success) {
       setTipo("success");
       setMensaje("¡Registro exitoso! Welcome to English Mindset"); 
       setTimeout(() => navigate("/"), 2000);
     } else {
-      setTipo("error"); setMensaje(result.message)
+      setTipo("error"); setMensaje(result.message);
     }
-  }
+  };
 
   return (
     <div className="container-fluid p-0" style={{ minHeight: "100vh" }}>
       <div className="row g-0 min-vh-100">
         
-        {/* COLUMNA IZQUIERDA: SECCIÓN INFORMATIVA */}
+        {/* COLUMNA IZQUIERDA: SECCIÓN INFORMATIVA DINÁMICA */}
         <div className="col-md-6 d-none d-md-flex flex-column align-items-start justify-content-center p-5 text-white position-relative" 
           style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)", overflow: "hidden" }}>
+          
+          {/* Elementos decorativos de fondo */}
           <div style={{ position: "absolute", top: "15%", left: "-5%", width: "250px", height: "250px", borderRadius: "50%", background: "rgba(255,255,255,0.02)" }}></div>
+          <div style={{ position: "absolute", bottom: "-10%", right: "-5%", width: "300px", height: "300px", borderRadius: "50%", background: "rgba(255,255,255,0.02)" }}></div>
 
           <div style={{ maxWidth: "85%", zIndex: 10 }}>
             <span style={{ backgroundColor: "rgba(255, 255, 255, 0.12)", padding: "6px 16px", borderRadius: "20px", fontSize: "0.8rem", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }} className="mb-4 d-inline-block">
-              🚀 Neuroplasticidad
+              {mindsetFact.category}
             </span>
-            <h3 className="fw-bold mb-3 lh-base" style={{ fontSize: "2rem" }}>
-              "Tu cerebro cambia físicamente de tamaño al aprender inglés."
+            <h3 className="fw-bold mb-3 lh-base" style={{ fontSize: "1.9rem" }}>
+              {mindsetFact.title}
             </h3>
             <p style={{ color: "#e2e8f0", fontSize: "1.05rem", lineHeight: "1.6" }} className="fw-light">
-              Aprender un segundo idioma activa la neuroplasticidad estructural. Monitoreos cerebrales revelan que la materia gris en la corteza cerebral y el hipocampo se expande notablemente. No solo estás adquiriendo vocabulario, estás haciendo que tu cerebro sea más joven, flexible y resistente al paso del tiempo.
+              {mindsetFact.text}
             </p>
           </div>
         </div>
@@ -194,7 +207,7 @@ export const RegisterPage = () => {
 
       </div>
     </div>
-  )
-}
+  );
+};
 
 export default RegisterPage;
