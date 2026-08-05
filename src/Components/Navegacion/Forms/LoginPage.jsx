@@ -4,7 +4,7 @@ import { useUser } from "../../Context/UserContext"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
-import { getRandomFact } from "../../../data/mindsetFacts";
+import { getRandomFact } from "../../../Data/mindsetFacts";
 
 export const LoginPage = () => {
   const [mensaje, setMensaje] = useState("")
