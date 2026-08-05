@@ -437,7 +437,7 @@ app.get('/api/admin/change-status', async (req, res) => {
                             <p>Hola <strong>${user.name || ''}</strong>,</p>
                             <p>Nos alegra informarte que tu pago ha sido verificado y <strong>tu plan ya se encuentra ACTIVO</strong>.</p>
                             <p>Ya puedes acceder a todo el contenido exclusivo en nuestra plataforma.</p>
-                            <a href="${FRONTEND_URL}/#/training-hub" style="background: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-top: 15px;">
+                            <a href="https://osmeycgm.github.io/English-Mindset/#/traininghub" style="background: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-top: 15px;">
                                 Ir al Training Hub
                             </a>
                         </div>
