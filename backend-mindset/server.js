@@ -609,6 +609,12 @@ app.post('/api/auth/reset-password', (req, res) => {
         res.status(401).json({ success: false, message: "El enlace es inválido o ha expirado (validez de 1 hora)." });
     }
 });
+// ─── 12. REDIRECCIÓN DE SEGURIDAD (CATCH-ALL) ─────────────────────────────────
+// Si alguien intenta acceder a una ruta en el backend por accidente desde el navegador,
+// en lugar de mostrar "Cannot GET", lo redirigimos automáticamente a tu Frontend.
+app.get('*', (req, res) => {
+    res.redirect('https://osmeycgm.github.io/English-Mindset');
+});
 // ─── INICIAR SERVIDOR ─────────────────────────────────────────────────────────
 app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
