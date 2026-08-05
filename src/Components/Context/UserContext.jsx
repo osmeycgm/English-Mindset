@@ -10,60 +10,72 @@ const API_URL =
         : "https://english-mindset-production.up.railway.app"
 
 export const UserProvider = ({ children }) => {
-    // Inicializamos los estados intentando leer el token de la sesión activa
+    // Inicializamos los estados desde localStorage
     const [token, setToken] = useState(() => localStorage.getItem("em_token") || null)
     const [email, setEmail] = useState(() => localStorage.getItem("em_email") || null)
     const [id, setId] = useState(() => localStorage.getItem("em_id") || null)
     
-    // NUEVO: Estado del plan para desbloquear TrainingHub
-    const [hasActivePlan, setHasActivePlan] = useState(false);
+    // Estado del plan para desbloquear el contenido
+    const [hasActivePlan, setHasActivePlan] = useState(false)
+
+    // NUEVO: Estado para saber si estamos verificando/revalidando la sesión con el backend
+    const [loadingUser, setLoadingUser] = useState(true)
 
     // Evaluar si el usuario actual es Administrador
-    const isAdmin = email === 'osmey009@gmail.com';
+    const isAdmin = email === 'osmey009@gmail.com'
     
     // Objeto user para componentes que requieran la estructura { id, email }
-    const user = token ? { id, email } : null;
+    const user = token ? { id, email } : null
 
     // ==========================================
-    // SINCRONIZAR PERFIL CON BACKEND
+    // REVALIDAR / SINCRONIZAR PERFIL CON BACKEND
     // ==========================================
-    const fetchUserProfile = async () => {
-        if (!token) return;
+    const fetchUserProfile = async (overrideToken = null) => {
+        const activeToken = overrideToken || token
+        if (!activeToken) {
+            setLoadingUser(false)
+            return
+        }
+
         try {
             const response = await fetch(`${API_URL}/api/auth/me`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const data = await response.json();
+                headers: { Authorization: `Bearer ${activeToken}` }
+            })
+            const data = await response.json()
             
             if (response.ok && data.success) {
-                setHasActivePlan(data.user.hasActivePlan);
+                setHasActivePlan(Boolean(data.user?.hasActivePlan))
+                if (data.user?.email) setEmail(data.user.email)
+                if (data.user?.id) setId(data.user.id)
             } else if (response.status === 401) {
-                // Si el token expiró, cerramos la sesión automáticamente
-                logout();
+                // Si el token expiró o es inválido, cerramos sesión
+                logout()
             }
         } catch (error) {
-            console.error("Error al sincronizar estado del plan:", error);
+            console.error("Error al revalidar el estado del usuario:", error)
+        } finally {
+            setLoadingUser(false)
         }
-    };
+    }
 
-    // Consultar el estado cada vez que el token cambie
+    // Consultar el estado cada vez que el token cambie o al cargar la app
     useEffect(() => {
         if (token) {
-            fetchUserProfile();
+            fetchUserProfile(token)
         } else {
-            setHasActivePlan(false);
+            setHasActivePlan(false)
+            setLoadingUser(false)
         }
-    }, [token]);
+    }, [token])
 
     // ==========================================
-    // PERSISTENCIA DE LA SESIÓN
+    // PERSISTENCIA EN LOCALSTORAGE
     // ==========================================
     useEffect(() => {
         if (token) {
-            console.log('DEBUG UserContext: guardando token en localStorage', token)
             localStorage.setItem("em_token", token)
-            localStorage.setItem("em_email", email)
-            localStorage.setItem("em_id", id)
+            localStorage.setItem("em_email", email || "")
+            localStorage.setItem("em_id", id || "")
         } else {
             localStorage.removeItem("em_token")
             localStorage.removeItem("em_email")
@@ -88,7 +100,7 @@ export const UserProvider = ({ children }) => {
                 setToken(data.token)
                 setEmail(userEmail)
                 setId(data.user?.id || Date.now().toString()) 
-                setHasActivePlan(data.user?.hasActivePlan || false) // Se establece instantáneamente
+                setHasActivePlan(Boolean(data.user?.hasActivePlan))
                 return { success: true }
             } else {
                 return { success: false, message: data.message }
@@ -117,7 +129,7 @@ export const UserProvider = ({ children }) => {
                     setToken(data.token)
                     setEmail(data.user?.email || userEmail)
                     setId(data.user?.id || Date.now().toString())
-                    setHasActivePlan(data.user?.hasActivePlan || false)
+                    setHasActivePlan(Boolean(data.user?.hasActivePlan))
                 }
                 return { success: true, message: data.message }
             } else {
@@ -146,7 +158,7 @@ export const UserProvider = ({ children }) => {
                 setToken(data.token)
                 setEmail(data.user.email)
                 setId(data.user.id || Date.now().toString())
-                setHasActivePlan(data.user?.hasActivePlan || false)
+                setHasActivePlan(Boolean(data.user?.hasActivePlan))
                 return { success: true }
             } else {
                 return { success: false, message: data.message }
@@ -165,6 +177,7 @@ export const UserProvider = ({ children }) => {
         setEmail(null)
         setId(null)
         setHasActivePlan(false)
+        setLoadingUser(false)
     }
 
     const getProfile = () => {
@@ -179,8 +192,9 @@ export const UserProvider = ({ children }) => {
             id, 
             user, 
             isAdmin,
-            hasActivePlan,      // Exponemos el estado del plan a toda la app
-            fetchUserProfile,   // Exponemos la función por si necesitas recargar manual
+            hasActivePlan,      // Estado del plan activado/inactivo
+            loadingUser,        // Estado de carga para proteger vistas
+            fetchUserProfile,   // Función para forzar revalidación bajo demanda
             login, 
             register, 
             logout, 

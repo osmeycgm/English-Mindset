@@ -423,11 +423,9 @@ app.get('/api/admin/change-status', async (req, res) => {
 
         console.log(`⚙️ ADMIN ACTION: ${user.email} -> hasActivePlan = ${isActivating}`);
 
-        // NUEVO: Enviar correo de notificación al cliente al activar el plan
         if (isActivating && mailTransporter) {
             try {
-                // Generamos la URL del frontend para que el cliente pueda hacer click e ir directo a la app
-                const frontendURL = 'https://english-mindset-production.up.railway.app'; 
+                const FRONTEND_URL = process.env.FRONTEND_URL || "https://osmeycgm.github.io/English-Mindset";
 
                 await mailTransporter.sendMail({
                     from: `"English Mindset" <${SMTP_USER}>`,
@@ -439,20 +437,24 @@ app.get('/api/admin/change-status', async (req, res) => {
                             <p>Hola <strong>${user.name || ''}</strong>,</p>
                             <p>Nos alegra informarte que tu pago ha sido verificado y <strong>tu plan ya se encuentra ACTIVO</strong>.</p>
                             <p>Ya puedes acceder a todo el contenido exclusivo en nuestra plataforma.</p>
-                            <a href="${frontendURL}/training-hub" 
-                               style="background: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-top: 15px;">
-                               Ir al Training Hub
+                            <a href="${FRONTEND_URL}/#/training-hub" style="background: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-top: 15px;">
+                                Ir al Training Hub
                             </a>
                         </div>
                     `
                 });
-                console.log(`✅ Correo de activación enviado con éxito al cliente: ${user.email}`);
-            } catch (emailErr) {
-                console.error("Error enviando correo de confirmación al cliente:", emailErr);
+            } catch (error) {
+                console.error("Error al enviar correo de activación:", error);
+                return res.status(500).send(`
+                    <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px; padding: 20px;">
+                        <h1 style="color: #ef4444;">Error enviando correo</h1>
+                        <p>Ocurrió un problema al intentar enviar el correo de activación. Intenta de nuevo más tarde.</p>
+                    </div>
+                `);
             }
         }
 
-        res.send(`
+        return res.send(`
             <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px; padding: 20px;">
                 <h1 style="color: ${isActivating ? '#22c55e' : '#ef4444'}; font-size: 32px;">
                     ${isActivating ? '¡Plan Activado con Éxito!' : '¡Plan Desactivado / Usuario Suspendido!'}
@@ -466,7 +468,6 @@ app.get('/api/admin/change-status', async (req, res) => {
                 <p style="color: #64748b; margin-top: 30px;">Puedes cerrar esta pestaña de forma segura.</p>
             </div>
         `);
-
     } catch (error) {
         console.error("Error al procesar acción de admin:", error);
         res.status(401).send(`
@@ -532,7 +533,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     );
 
     // URL base del frontend
-    const frontendUrl = process.env.FRONTEND_URL || 'https://english-mindset-production.up.railway.app';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://osmeycgm.github.io/English-Mindset';
     const resetLink = `${frontendUrl}/#/reset-password?token=${resetToken}`;
 
     if (!mailTransporter) {

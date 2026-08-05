@@ -1,33 +1,38 @@
 import { useState, useRef } from "react"
 import { useUser } from "../../Context/UserContext"
-import { Link, useNavigate } from "react-router-dom" //
+import { Link, useNavigate } from "react-router-dom"
 import Unit from "./Units/Unit1"
 
 const TrainingHub = () => {
-    const { token, user, hasActivePlan } = useUser()
+    // Extraemos la información del UserContext
+    const { token, user, hasActivePlan, loading } = useUser()
     const navigate = useNavigate()
 
-    const tieneCursoPagado = hasActivePlan || false
-    const linkGoogleMeet = "https://meet.google.com/abc-defg-hij"; //
+    // Manejo robusto de la verificación de plan activo (soporta si hasActivePlan es función o booleano)
+    const tieneCursoPagado = typeof hasActivePlan === "function" 
+        ? hasActivePlan() 
+        : Boolean(hasActivePlan || user?.hasActivePlan || user?.plan)
+
+    const linkGoogleMeet = "https://meet.google.com/abc-defg-hij"
 
     // ESTADOS DE NAVEGACIÓN (macro, micro, unit-detail, exam)
-    const [vistaActual, setVistaActual] = useState("macro") //
-    const [nivelSeleccionado, setNivelSeleccionado] = useState(null) //
-    const [unidadSeleccionada, setUnidadSeleccionada] = useState(null) //
+    const [vistaActual, setVistaActual] = useState("macro")
+    const [nivelSeleccionado, setNivelSeleccionado] = useState(null)
+    const [unidadSeleccionada, setUnidadSeleccionada] = useState(null)
 
     // REF PARA EL CARRUSEL
-    const carouselRef = useRef(null) //
+    const carouselRef = useRef(null)
 
-    // ─── DATOS DE LOS NIVELES (AHORA CON STAGE 0 INCLUIDO) ────────────────
+    // ─── DATOS DE LOS NIVELES ────────────────
     const nivelesAcademicos = [
         { id: 0, name: "Stage 00: Mindset Assessment", duration: "30 Minutos", desc: "Test de nivelación interactivo. Descubre tu punto de partida exacto.", status: "active", isExam: true },
         { id: 1, name: "Stage 01: Foundations", duration: "4-6 Meses", desc: "Rompe la traducción mental y automatiza tus respuestas.", status: "active" },
         { id: 2, name: "Stage 02: Fluency Explorer", duration: "4-6 Meses", desc: "Adquiere agilidad comercial, debate y conecta ideas complejas.", status: "locked" },
         { id: 3, name: "Stage 03: Professional Mastery", duration: "4-6 Meses", desc: "Modismos avanzados, negociación y alta complejidad corporativa.", status: "locked" },
         { id: 4, name: "Stage 04: Native Expansion", duration: "4-6 Meses", desc: "Inmersión cultural absoluta a nivel C1/C2.", status: "locked" },
-    ] //
+    ]
 
-    // 16 UNIDADES ESTILO NETFLIX (Con imágenes ilustrativas abstractas)
+    // 16 UNIDADES ESTILO NETFLIX
     const unidadesMock = Array.from({ length: 16 }, (_, i) => ({
         id: i + 1,
         title: `Unidad ${String(i + 1).padStart(2, '0')}`,
@@ -40,43 +45,46 @@ const TrainingHub = () => {
             "1618005182384-a83a8bd57fbe", "1634017839464-5c339ebe3cb4",
             "1614741118887-7a4ee193a5fa", "1579783900882-c0d3dad7b119"
         ][i % 4]}?auto=format&fit=crop&w=600&q=80`
-    })) //
-
-    const actividadesMock = [
-        { id: 1, type: "video", title: "Masterclass: Estrategias del Día", duration: "12 min" },
-        { id: 2, type: "pdf", title: "Cambridge Interactive Canvas (Tu Sello)", duration: "25 min" },
-        { id: 3, type: "audio", title: "Audio Drill: Pronunciación Nativa Sincronizada", duration: "15 min" },
-        { id: 4, type: "quiz", title: "Mindset Check: Desafío de Retención", duration: "8 min" },
-    ] //
+    }))
 
     const handleEntrarNivel = (nivel) => {
-        if (nivel.status === "locked") return; //
+        if (nivel.status === "locked") return
 
-        // Si es el examen de nivelación, lo enviamos a su vista dedicada
         if (nivel.isExam) {
-            setVistaActual("exam"); //
-            return; //
+            setVistaActual("exam")
+            return
         }
 
-        setNivelSeleccionado(nivel) //
-        setVistaActual("micro") //
+        setNivelSeleccionado(nivel)
+        setVistaActual("micro")
     }
 
     const handleEntrarUnidad = (unidad) => {
-        setUnidadSeleccionada(unidad) //
-        setVistaActual("unit-detail") //
+        setUnidadSeleccionada(unidad)
+        setVistaActual("unit-detail")
     }
 
     // FUNCIÓN DE DESPLAZAMIENTO DEL CARRUSEL
     const scrollCarousel = (direction) => {
-        if (carouselRef.current) { //
-            const { current } = carouselRef; //
-            const scrollAmount = direction === "left" ? -284 : 284; //
-            current.scrollBy({ left: scrollAmount, behavior: "smooth" }); //
+        if (carouselRef.current) {
+            const { current } = carouselRef
+            const scrollAmount = direction === "left" ? -284 : 284
+            current.scrollBy({ left: scrollAmount, behavior: "smooth" })
         }
     }
 
-    // ─── CASO 1: INVITADO ──────────────────────────────────────────────────
+    // ─── ESTADO DE CARGA (Para evitar destellos molestos mientras el context lee localStorage/API) ───
+    if (loading) {
+        return (
+            <div className="aesthetic-bg d-flex align-items-center justify-content-center" style={{ minHeight: "100vh" }}>
+                <div className="spinner-border text-cyan" role="status" style={{ width: "3rem", height: "3rem" }}>
+                    <span className="visually-hidden">Cargando...</span>
+                </div>
+            </div>
+        )
+    }
+
+    // ─── CASO 1: INVITADO (SIN TOKEN) ───────────────────────────────────────
     if (!token) {
         return (
             <div style={{
@@ -98,7 +106,6 @@ const TrainingHub = () => {
                     width: "100%",
                     textAlign: "center"
                 }}>
-                    {/* Ícono */}
                     <div style={{
                         width: "70px", height: "70px", borderRadius: "50%",
                         background: "linear-gradient(135deg, #1e3a8a 0%, #0284c7 100%)",
@@ -117,7 +124,6 @@ const TrainingHub = () => {
                         Aquí podrás tener el contenido guía y de trabajo estratégico para tu viaje hacia el dominio definitivo del inglés. Inicia sesión para desbloquear tu mapa de entrenamiento.
                     </p>
 
-                    {/* Botones */}
                     <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
                         <Link to="/login" style={{
                             padding: "12px 28px",
@@ -149,15 +155,15 @@ const TrainingHub = () => {
         )
     }
 
-    // ─── CASO 2: LOGGEADO SIN PLAN (AQUÍ ESTÁ EL BLOQUEO REAL) ─────────────
-    if (token && !tieneCursoPagado) { //
+    // ─── CASO 2: LOGGEADO SIN PLAN ACTIVO ──────────────────────────────────
+    if (token && !tieneCursoPagado) {
         return (
             <div className="aesthetic-bg d-flex align-items-center justify-content-center p-4">
                 <div className="glass-card text-center p-5" style={{ maxWidth: "34rem" }}>
                     <div className="glow-icon mb-4">
                         <i className="bi bi-compass text-warning fs-1" />
                     </div>
-                    <h2 className="fw-bold text-white mb-2">¡Hola, {user?.name || "Explorer"}!</h2>
+                    <h2 className="fw-bold text-white mb-2">¡Hola, {user?.name || user?.nombre || "Explorer"}!</h2>
                     <p className="text-blue-200 mb-4 lh-lg">
                         No tienes ningún paquete o curso seleccionado. Inscríbete en uno de nuestros entrenamientos para activar tu acceso al Training Hub.
                     </p>
@@ -166,7 +172,7 @@ const TrainingHub = () => {
                     </Link>
                 </div>
             </div>
-        ) //
+        )
     }
 
     // ─── CASO 3: ALUMNO ACTIVO ─────────────────────────────────────────────
@@ -198,9 +204,9 @@ const TrainingHub = () => {
                             </svg>
 
                             {nivelesAcademicos.map((nivel, idx) => {
-                                const esPar = idx % 2 === 0; //
-                                const estaBloqueado = nivel.status === "locked"; //
-                                const isExam = nivel.isExam; //
+                                const esPar = idx % 2 === 0
+                                const estaBloqueado = nivel.status === "locked"
+                                const isExam = nivel.isExam
 
                                 return (
                                     <div
@@ -255,7 +261,6 @@ const TrainingHub = () => {
                                     Aquí montaremos la interfaz estilo Kahoot interactivo para evaluar tu nivel exacto. Asegúrate de tener audio activado y estar en un lugar tranquilo.
                                 </p>
 
-                                {/* 🔥 Se cambió la alerta por navigate a la ruta correspondiente */}
                                 <button
                                     className="btn btn-warning fw-bold py-3 px-5 rounded-pill shadow-glow text-dark fs-5 w-100"
                                     onClick={() => navigate("/testing0")}
@@ -308,7 +313,7 @@ const TrainingHub = () => {
                             </div>
                         </div>
 
-                        {/* Slider Horizontal Estilo Netflix con Botones de Exploración */}
+                        {/* Slider Horizontal Estilo Netflix */}
                         <div className="netflix-section">
                             <h3 className="fw-bold text-white mb-4 tracking-tight">
                                 <i className="bi bi-grid-3x3-gap-fill me-2 text-cyan" /> Unidades Disponibles
@@ -359,9 +364,8 @@ const TrainingHub = () => {
 
             </div>
 
-            {/* ─── INYECCIÓN DE ESTILOS CSS AESTHETIC — NO TOCAR ──────────────────── */}
+            {/* ─── INYECCIÓN DE ESTILOS CSS AESTHETIC ──────────────────── */}
             <style>{`
-                /* Fondo Base de la Marca */
                 .aesthetic-bg {
                     background: radial-gradient(circle at 50% 0%, #1e3a8a 0%, #0b1329 70%, #050a14 100%);
                     min-height: 100vh;
@@ -374,13 +378,11 @@ const TrainingHub = () => {
                 .fw-black { font-weight: 900; }
                 .bg-cyan { background-color: #38bdf8 !important; }
                 
-                /* Clases Utilitarias para Banner Meet */
                 .backdrop-blur { backdrop-filter: blur(12px); }
                 @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
                 .animate-ping { animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
                 .shadow-glow { box-shadow: 0 0 20px rgba(56, 189, 248, 0.5); }
                 
-                /* Estilo de Tarjetas de Cristal (Glassmorphism) */
                 .glass-card {
                     background: rgba(15, 23, 42, 0.6);
                     backdrop-filter: blur(16px);
@@ -389,7 +391,6 @@ const TrainingHub = () => {
                     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
                 }
 
-                /* Botones de Neón */
                 .btn-neon {
                     background: linear-gradient(135deg, #2563eb 0%, #0284c7 100%);
                     color: white;
@@ -404,7 +405,6 @@ const TrainingHub = () => {
                     color: white;
                 }
 
-                /* Nodos del Mapa del Tesoro */
                 .island-node {
                     background: rgba(30, 41, 59, 0.7);
                     backdrop-filter: blur(8px);
@@ -443,7 +443,6 @@ const TrainingHub = () => {
                     font-weight: bold;
                 }
 
-                /* 🎬 ESTRUCTURA NETFLIX CAROUSEL */
                 .netflix-section {
                     position: relative;
                     padding: 10px 0;
@@ -512,7 +511,6 @@ const TrainingHub = () => {
                     margin-top: 8px;
                 }
 
-                /* ◀️ ▶️ BOTONES DE CONTROL LATERAL (CARRUSEL) */
                 .carousel-control {
                     position: absolute;
                     top: 50%;
@@ -537,14 +535,9 @@ const TrainingHub = () => {
                     transform: translateY(-50%) scale(1.15);
                     box-shadow: 0 10px 30px rgba(56, 189, 248, 0.4);
                 }
-                .carousel-control.left {
-                    left: -20px;
-                }
-                .carousel-control.right {
-                    right: -20px;
-                }
+                .carousel-control.left { left: -20px; }
+                .carousel-control.right { right: -20px; }
 
-                /* Tiras de Actividades Internas */
                 .activity-strip {
                     background: rgba(255, 255, 255, 0.02);
                     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -571,7 +564,6 @@ const TrainingHub = () => {
                 .activity-icon-box.audio { background: rgba(16, 185, 129, 0.2); color: #34d399; }
                 .activity-icon-box.quiz { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
 
-                /* Botones de Regresar */
                 .btn-back {
                     background: transparent;
                     color: #94a3b8;
