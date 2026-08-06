@@ -223,8 +223,23 @@ app.post('/api/auth/google', async (req, res) => {
 
 // ─── 4. PERFIL AUTENTICADO ────────────────────────────────────────────────────
 app.get('/api/auth/me', verificarToken, (req, res) => {
-    const user = users.find(u => u.id === req.user.id);
-    if (!user) return res.status(404).json({ success: false, message: "Usuario no encontrado." });
+    const user = users.find(u => u.id === req.user.id)
+    
+    if (!user) {
+        // ← Si el server reinició y no encuentra al usuario,
+        // devuelve info básica del JWT (sin hasActivePlan)
+        // En vez de 404, devuelve el usuario del token
+        return res.json({ 
+            success: true, 
+            user: { 
+                id: req.user.id, 
+                email: req.user.email,
+                hasActivePlan: false,
+                fromToken: true  // ← flag para saber que viene del token, no de la DB
+            } 
+        })
+    }
+    
     res.json({ 
         success: true, 
         user: { 
@@ -232,9 +247,8 @@ app.get('/api/auth/me', verificarToken, (req, res) => {
             name: user.name, apellido: user.apellido,
             hasActivePlan: user.hasActivePlan 
         } 
-    });
-});
-
+    })
+})
 // ─── 5. PAYPAL ENDPOINTS ──────────────────────────────────────────────────────
 app.post('/api/paypal/create-order', async (req, res) => {
     try {
