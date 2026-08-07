@@ -1,6 +1,7 @@
 // src/Context/UserContext.jsx
 import { createContext, useState, useContext, useEffect } from "react"
 
+
 export const UserContext = createContext()
 
 // Configuración dinámica de la URL del Backend:

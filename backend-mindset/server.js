@@ -5,6 +5,8 @@ import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs'; // 🟢 Importación de Bcrypt
 
 dotenv.config();
 
@@ -13,6 +15,7 @@ console.log('DEBUG: process.cwd()', process.cwd());
 console.log('DEBUG: module URL', import.meta.url);
 console.log('DEBUG: PAYPAL_CLIENT_ID present', !!process.env.PAYPAL_CLIENT_ID);
 console.log('DEBUG: JWT_SECRET present', !!process.env.JWT_SECRET);
+console.log('DEBUG: MONGO_URI present', !!process.env.MONGO_URI);
 
 (async () => {
     if (typeof fetch === 'undefined') {
@@ -32,6 +35,25 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+// ─── 🟢 CONEXIÓN A MONGODB ATLAS ───────────────────────────────────────────────
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('🟢 Conectado exitosamente a MongoDB Atlas'))
+  .catch((err) => console.error('🔴 Error al conectar con MongoDB:', err));
+
+// ─── 🟢 ESQUEMA Y MODELO DE USUARIO ───────────────────────────────────────────
+const userSchema = new mongoose.Schema({
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password: { type: String }, // Guardará el Hash de bcrypt (manual) o estará vacío (Google)
+    name: { type: String, required: true },
+    apellido: { type: String },
+    edad: { type: String },
+    provider: { type: String, default: 'manual' },
+    hasActivePlan: { type: Boolean, default: false }
+}, { timestamps: true });
+
+const User = mongoose.model('User', userSchema);
+// ──────────────────────────────────────────────────────────────────────────────
 
 const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
 const SMTP_PORT = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587;
@@ -91,7 +113,6 @@ function verificarToken(req, res, next) {
     }
 }
 
-const users = [];
 const orders = [];
 
 // ─── PAYPAL ───────────────────────────────────────────────────────────────────
@@ -114,60 +135,87 @@ async function generateAccessToken() {
     return data.access_token;
 }
 
-// ─── 1. REGISTRO ──────────────────────────────────────────────────────────────
-app.post('/api/auth/register', (req, res) => {
-    const { email, password, name, apellido, edad } = req.body;
-    if (!email || !password || !name) {
-        return res.status(400).json({ success: false, message: "Faltan campos obligatorios." });
+// ─── 1. REGISTRO (CON BCRYPT) ──────────────────────────────────────────────────
+app.post('/api/auth/register', async (req, res) => {
+    try {
+        const { email, password, name, apellido, edad } = req.body;
+        if (!email || !password || !name) {
+            return res.status(400).json({ success: false, message: "Faltan campos obligatorios." });
+        }
+        
+        const userExists = await User.findOne({ email: email.toLowerCase() });
+        if (userExists) {
+            return res.status(400).json({ success: false, message: "El correo ya está registrado." });
+        }
+
+        // 🟢 Encriptar la contraseña antes de guardar
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const newUser = new User({ 
+            email: email.toLowerCase(), 
+            password: hashedPassword, 
+            name, 
+            apellido, 
+            edad, 
+            provider: 'manual', 
+            hasActivePlan: false 
+        });
+        await newUser.save();
+
+        const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+        res.status(201).json({ 
+            success: true, 
+            message: "Usuario registrado con éxito.", 
+            token, 
+            user: { 
+                id: newUser._id, 
+                name: newUser.name, 
+                apellido: newUser.apellido,
+                email: newUser.email, 
+                hasActivePlan: newUser.hasActivePlan 
+            } 
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Error al registrar en la base de datos." });
     }
-    const userExists = users.find(u => u.email === email);
-    if (userExists) {
-        return res.status(400).json({ success: false, message: "El correo ya está registrado." });
-    }
-
-    const newUser = { 
-        id: Date.now(), email, password, name, apellido, edad, 
-        provider: 'manual', 
-        hasActivePlan: false 
-    };
-    users.push(newUser);
-
-    const token = jwt.sign({ id: newUser.id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-
-    res.status(201).json({ 
-        success: true, 
-        message: "Usuario registrado con éxito.", 
-        token, 
-        user: { 
-            id: newUser.id, 
-            name: newUser.name, 
-            apellido: newUser.apellido,
-            email: newUser.email, 
-            hasActivePlan: newUser.hasActivePlan 
-        } 
-    });
 });
 
-// ─── 2. LOGIN ─────────────────────────────────────────────────────────────────
-app.post('/api/auth/login', (req, res) => {
-    const { email, password } = req.body;
-    const user = users.find(u => u.email === email && u.password === password);
-    if (!user) {
-        return res.status(401).json({ success: false, message: "Credenciales incorrectas o usuario no registrado." });
-    }
-    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+// ─── 2. LOGIN (CON BCRYPT) ────────────────────────────────────────────────────
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        // Buscar únicamente por email
+        const user = await User.findOne({ email: email.toLowerCase() });
+        
+        if (!user || !user.password) {
+            return res.status(401).json({ success: false, message: "Credenciales incorrectas o usuario no registrado." });
+        }
+        
+        // 🟢 Comparar la contraseña ingresada con el hash de la base de datos
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: "Credenciales incorrectas." });
+        }
 
-    res.json({ 
-        success: true, 
-        token, 
-        user: { 
-            id: user.id, 
-            name: user.name, 
-            apellido: user.apellido,
-            email: user.email, 
-            hasActivePlan: user.hasActivePlan 
-        } 
-    });
+        const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+        res.json({ 
+            success: true, 
+            token, 
+            user: { 
+                id: user._id, 
+                name: user.name, 
+                apellido: user.apellido,
+                email: user.email, 
+                hasActivePlan: user.hasActivePlan 
+            } 
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Error al iniciar sesión." });
+    }
 });
 
 // ─── 3. GOOGLE AUTH ───────────────────────────────────────────────────────────
@@ -179,28 +227,32 @@ app.post('/api/auth/google', async (req, res) => {
             idToken: tokenGoogle,
         });
         const payload = ticket.getPayload();
-        if (payload.email !== email) {
+        
+        if (payload.email.toLowerCase() !== email.toLowerCase()) {
             return res.status(400).json({ success: false, message: "El correo no coincide con el token de Google." });
         }
-        const userExists = users.find(u => u.email === email);
+        
+        const userExists = await User.findOne({ email: email.toLowerCase() });
 
         if (mode === 'register') {
             if (userExists) {
-                return res.status(409).json({ success: false, message: "ya existe esta cuenta. Por favor, inicia sesión.", isNewUser: false });
+                return res.status(409).json({ success: false, message: "Ya existe esta cuenta. Por favor, inicia sesión.", isNewUser: false });
             }
-            const newUser = {
-                id: Date.now(), email,
+            
+            const newUser = new User({
+                email: email.toLowerCase(),
                 name: payload.given_name || "Usuario",
                 apellido: payload.family_name || "Google",
                 edad: "No especificada",
                 provider: 'google',
                 hasActivePlan: false
-            };
-            users.push(newUser);
-            const token = jwt.sign({ id: newUser.id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+            });
+            await newUser.save();
+            
+            const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
             return res.status(201).json({ 
                 success: true, token, 
-                user: { id: newUser.id, email: newUser.email, name: newUser.name, apellido: newUser.apellido, hasActivePlan: newUser.hasActivePlan }, 
+                user: { id: newUser._id, email: newUser.email, name: newUser.name, apellido: newUser.apellido, hasActivePlan: newUser.hasActivePlan }, 
                 isNewUser: true 
             });
         }
@@ -209,10 +261,10 @@ app.post('/api/auth/google', async (req, res) => {
             if (!userExists) {
                 return res.status(404).json({ success: false, message: "Tu cuenta de Google no está registrada. Regístrate primero." });
             }
-            const token = jwt.sign({ id: userExists.id, email: userExists.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+            const token = jwt.sign({ id: userExists._id, email: userExists.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
             return res.json({ 
                 success: true, token, 
-                user: { id: userExists.id, name: userExists.name, apellido: userExists.apellido, email: userExists.email, hasActivePlan: userExists.hasActivePlan } 
+                user: { id: userExists._id, name: userExists.name, apellido: userExists.apellido, email: userExists.email, hasActivePlan: userExists.hasActivePlan } 
             });
         }
     } catch (error) {
@@ -222,17 +274,35 @@ app.post('/api/auth/google', async (req, res) => {
 });
 
 // ─── 4. PERFIL AUTENTICADO ────────────────────────────────────────────────────
-app.get('/api/auth/me', verificarToken, (req, res) => {
-    const user = users.find(u => u.id === req.user.id);
-    if (!user) return res.status(404).json({ success: false, message: "Usuario no encontrado." });
-    res.json({ 
-        success: true, 
-        user: { 
-            id: user.id, email: user.email, 
-            name: user.name, apellido: user.apellido,
-            hasActivePlan: user.hasActivePlan 
-        } 
-    });
+app.get('/api/auth/me', verificarToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        
+        if (!user) {
+            return res.json({ 
+                success: true, 
+                user: { 
+                    id: req.user.id, 
+                    email: req.user.email,
+                    hasActivePlan: false,
+                    fromToken: true
+                } 
+            });
+        }
+        
+        res.json({ 
+            success: true, 
+            user: { 
+                id: user._id, 
+                email: user.email, 
+                name: user.name, 
+                apellido: user.apellido,
+                hasActivePlan: user.hasActivePlan 
+            } 
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Error de servidor al obtener el perfil." });
+    }
 });
 
 // ─── 5. PAYPAL ENDPOINTS ──────────────────────────────────────────────────────
@@ -268,14 +338,17 @@ app.post('/api/paypal/capture-order', verificarToken, async (req, res) => {
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }
         });
         const captureData = await response.json();
+        
         if (!response.ok || captureData.error || captureData.details) {
             return res.status(400).json({ success: false, message: "No se pudo capturar el pago.", details: captureData });
         }
+        
         if (captureData.status === "COMPLETED") {
-            const user = users.find(u => u.id === req.user.id);
+            const user = await User.findById(req.user.id);
             if (user) {
                 user.hasActivePlan = true;
-                console.log(`✅ Plan activado automáticamente por PayPal para: ${user.email}`);
+                await user.save();
+                console.log(`✅ Plan activado automáticamente por PayPal en BD para: ${user.email}`);
             }
 
             orders.push({ id: `ORD-${Date.now()}`, method: "paypal", reference: orderID, cartItems: cartItems || [], total: totalCLP || 0, status: 'approved' });
@@ -293,7 +366,7 @@ app.post('/api/orders/transferencia', verificarToken, upload.single('comprobante
     const file = req.file;
     if (!file) return res.status(400).json({ success: false, message: 'Se requiere comprobante adjunto.' });
 
-    const { serviceName, servicePrice, total, cartItems, userEmail, userId } = req.body;
+    const { serviceName, total, cartItems, userEmail, userId } = req.body;
     const clientEmail = userEmail || req.user?.email || 'No disponible';
     const clientId = userId || req.user?.id || 'No disponible';
     let parsedCartItems = [];
@@ -320,7 +393,6 @@ app.post('/api/orders/transferencia', verificarToken, upload.single('comprobante
                     <p><strong>Total:</strong> $${total}</p>
                     <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
                     <h3 style="color: #334155;">Acciones de Administrador:</h3>
-                    <p style="font-size: 14px; color: #64748b;">Selecciona una opción para actualizar inmediatamente el acceso del cliente:</p>
                     <div style="margin-top: 20px;">
                         <a href="${urlActivar}" style="background-color: #22c55e; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; margin-right: 12px;">
                             ✅ Aprobar y Activar Plan
@@ -334,7 +406,6 @@ app.post('/api/orders/transferencia', verificarToken, upload.single('comprobante
             attachments: [{ filename: file.originalname, content: file.buffer }]
         });
         orders.push({ id: `ORD-${Date.now()}`, method: 'transferencia', reference: file.originalname, cartItems: parsedCartItems, total, status: 'pending', userEmail: clientEmail });
-        console.log('✅ Transferencia recibida e email enviado con botones a:', clientEmail);
         res.json({ success: true, message: 'Comprobante enviado correctamente.' });
     } catch (error) {
         console.error("Error al enviar correo de transferencia:", error);
@@ -384,7 +455,6 @@ app.post('/api/orders/crypto', verificarToken, async (req, res) => {
             `
         });
         orders.push({ id: `ORD-${Date.now()}`, method: 'crypto', reference: txId, cartItems: cartItems || [], total, status: 'pending', userEmail: clientEmail });
-        console.log('✅ Pago Cripto recibido e email enviado a:', clientEmail);
         res.json({ success: true, message: 'Notificación enviada correctamente.' });
     } catch (error) {
         console.error("Error al enviar correo de cripto:", error);
@@ -396,37 +466,31 @@ app.post('/api/orders/crypto', verificarToken, async (req, res) => {
 app.get('/api/admin/change-status', async (req, res) => {
     const { token } = req.query;
     if (!token) {
-        return res.status(400).send('<h1 style="color:red; font-family:sans-serif; text-align:center; margin-top:50px;">Error: Token no proporcionado.</h1>');
+        return res.status(400).send('<h1 style="color:red; text-align:center;">Error: Token no proporcionado.</h1>');
     }
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const { userId, email, action } = decoded;
 
-        // NUEVO: Buscar usuario ignorando mayúsculas y minúsculas
-        const user = users.find(u => 
-            u.id === userId || 
-            (u.email && email && u.email.toLowerCase() === email.toLowerCase())
-        );
+        let user = null;
+        if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+            try { user = await User.findById(userId); } catch(e) {}
+        }
+        if (!user && email) {
+            user = await User.findOne({ email: email.toLowerCase() });
+        }
 
         if (!user) {
-            return res.status(404).send(`
-                <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
-                    <h1 style="color: #ef4444;">Usuario no encontrado</h1>
-                    <p>No se encontró un usuario registrado que coincida con este enlace.</p>
-                </div>
-            `);
+            return res.status(404).send('<h1 style="color:red; text-align:center;">Usuario no encontrado en BD.</h1>');
         }
 
         const isActivating = action === 'activate';
         user.hasActivePlan = isActivating;
-
-        console.log(`⚙️ ADMIN ACTION: ${user.email} -> hasActivePlan = ${isActivating}`);
+        await user.save();
 
         if (isActivating && mailTransporter) {
             try {
-                const FRONTEND_URL = process.env.FRONTEND_URL || "https://osmeycgm.github.io/English-Mindset";
-
                 await mailTransporter.sendMail({
                     from: `"English Mindset" <${SMTP_USER}>`,
                     to: user.email,
@@ -435,9 +499,8 @@ app.get('/api/admin/change-status', async (req, res) => {
                         <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
                             <h2 style="color: #16a34a;">¡Bienvenido a English Mindset!</h2>
                             <p>Hola <strong>${user.name || ''}</strong>,</p>
-                            <p>Nos alegra informarte que tu pago ha sido verificado y <strong>tu plan ya se encuentra ACTIVO</strong>.</p>
-                            <p>Ya puedes acceder a todo el contenido exclusivo en nuestra plataforma.</p>
-                            <a href="https://osmeycgm.github.io/English-Mindset/#/traininghub" style="background: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-top: 15px;">
+                            <p>Tu plan ya se encuentra <strong>ACTIVO</strong>.</p>
+                            <a href="https://osmeycgm.github.io/English-Mindset/#/traininghub" style="background: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">
                                 Ir al Training Hub
                             </a>
                         </div>
@@ -445,177 +508,97 @@ app.get('/api/admin/change-status', async (req, res) => {
                 });
             } catch (error) {
                 console.error("Error al enviar correo de activación:", error);
-                return res.status(500).send(`
-                    <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px; padding: 20px;">
-                        <h1 style="color: #ef4444;">Error enviando correo</h1>
-                        <p>Ocurrió un problema al intentar enviar el correo de activación. Intenta de nuevo más tarde.</p>
-                    </div>
-                `);
             }
         }
 
         return res.send(`
-            <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px; padding: 20px;">
-                <h1 style="color: ${isActivating ? '#22c55e' : '#ef4444'}; font-size: 32px;">
-                    ${isActivating ? '¡Plan Activado con Éxito!' : '¡Plan Desactivado / Usuario Suspendido!'}
+            <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
+                <h1 style="color: ${isActivating ? '#22c55e' : '#ef4444'};">
+                    ${isActivating ? '¡Plan Activado con Éxito!' : '¡Plan Desactivado!'}
                 </h1>
-                <p style="font-size: 18px; color: #334155;">
-                    El estado del plan para <strong>${user.email}</strong> ahora es: 
-                    <strong style="color: ${isActivating ? '#22c55e' : '#ef4444'};">
-                        ${isActivating ? 'ACTIVO' : 'INACTIVO / MOROSO'}
-                    </strong>.
-                </p>
-                <p style="color: #64748b; margin-top: 30px;">Puedes cerrar esta pestaña de forma segura.</p>
+                <p>El estado del plan para <strong>${user.email}</strong> es ahora: <strong>${isActivating ? 'ACTIVO' : 'INACTIVO'}</strong>.</p>
             </div>
         `);
     } catch (error) {
-        console.error("Error al procesar acción de admin:", error);
-        res.status(401).send(`
-            <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px; padding: 20px;">
-                <h1 style="color: #ef4444;">Enlace inválido o expirado</h1>
-                <p>Este enlace ya expiró (validez de 7 días) o no coincide con la firma de seguridad.</p>
-            </div>
-        `);
+        res.status(401).send('<h1 style="color:red; text-align:center;">Enlace inválido o expirado.</h1>');
     }
 });
 
-// ─── 9. ADMIN: ACTIVAR PLAN MANUAL ───────────────────────────────────────────
-app.post('/api/admin/activate-user', (req, res) => {
-    const { email, adminSecret } = req.body;
-    if (adminSecret !== process.env.ADMIN_SECRET) {
-        return res.status(403).json({ success: false, message: "Acceso denegado." });
-    }
-    const user = users.find(u => u.email === email);
-    if (!user) return res.status(404).json({ success: false, message: "Usuario no encontrado." });
-    user.hasActivePlan = true;
-    console.log(`✅ Plan activado manualmente para: ${email}`);
-    res.json({ success: true, message: `Plan activado para ${email}.` });
-});
-
-// ─── 10. ADMIN: VER USUARIOS ──────────────────────────────────────────────────
-app.get('/api/admin/users', (req, res) => {
-    const { adminSecret } = req.query;
-    if (adminSecret !== process.env.ADMIN_SECRET) {
-        return res.status(403).json({ success: false, message: "Acceso denegado." });
-    }
-    res.json({ success: true, users: users.map(u => ({ 
-        id: u.id, email: u.email, name: u.name, hasActivePlan: u.hasActivePlan, provider: u.provider
-    }))});
-});
-// ─── 11. RECUPERACIÓN DE CONTRASEÑA ───────────────────────────────────────────
-
-// Endpoint A: Solicitar enlace de recuperación por correo
+// ─── 9. RECUPERACIÓN Y RESET DE CONTRASEÑA (CON BCRYPT) ───────────────────────
 app.post('/api/auth/forgot-password', async (req, res) => {
-    const { email } = req.body;
-    if (!email) {
-        return res.status(400).json({ success: false, message: "El correo electrónico es obligatorio." });
-    }
-
-    // Buscamos ignorando mayúsculas/minúsculas
-    const user = users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
-    
-    if (!user) {
-        return res.status(404).json({ success: false, message: "No existe ninguna cuenta registrada con este correo." });
-    }
-
-    if (user.provider === 'google') {
-        return res.status(400).json({ 
-            success: false, 
-            message: "Esta cuenta se registró utilizando Google. Por favor, inicia sesión con el botón de Google." 
-        });
-    }
-
-    // Generar Token JWT válido por 1 hora
-    const resetToken = jwt.sign(
-        { userId: user.id, email: user.email, action: 'reset_password' },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-    );
-
-    // URL base del frontend
-    const frontendUrl = process.env.FRONTEND_URL || 'https://osmeycgm.github.io/English-Mindset';
-    const resetLink = `${frontendUrl}/#/reset-password?token=${resetToken}`;
-
-    if (!mailTransporter) {
-        return res.status(500).json({ success: false, message: "El servicio de correos no está disponible en el servidor." });
-    }
-
     try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ success: false, message: "El correo electrónico es obligatorio." });
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+        if (!user) return res.status(404).json({ success: false, message: "No existe ninguna cuenta registrada con este correo." });
+
+        if (user.provider === 'google') {
+            return res.status(400).json({ success: false, message: "Esta cuenta fue creada con Google. Inicia sesión directamente con Google." });
+        }
+
+        const resetToken = jwt.sign(
+            { userId: user._id, email: user.email, action: 'reset_password' },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        const frontendUrl = process.env.FRONTEND_URL || 'https://osmeycgm.github.io/English-Mindset';
+        const resetLink = `${frontendUrl}/#/reset-password?token=${resetToken}`;
+
+        if (!mailTransporter) return res.status(500).json({ success: false, message: "Servicio de correos no disponible." });
+
         await mailTransporter.sendMail({
             from: `"English Mindset" <${SMTP_USER}>`,
             to: user.email,
             subject: "🔑 Restablecer tu contraseña - English Mindset",
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 25px; color: #333; max-width: 600px; border: 1px solid #e2e8f0; border-radius: 12px; margin: 0 auto;">
-                    <h2 style="color: #1e3a8a; margin-top: 0;">Restablecimiento de Contraseña</h2>
+                    <h2 style="color: #1e3a8a;">Restablecimiento de Contraseña</h2>
                     <p>Hola <strong>${user.name || 'Estudiante'}</strong>,</p>
-                    <p>Recibimos una solicitud para cambiar la contraseña asociada a tu cuenta en <strong>English Mindset</strong>.</p>
-                    <p>Haz clic en el siguiente botón para crear tu nueva contraseña. Este enlace expira en <strong>1 hora</strong>:</p>
-                    
+                    <p>Haz clic en el siguiente enlace para crear tu nueva contraseña (expira en 1 hora):</p>
                     <div style="margin: 30px 0; text-align: center;">
-                        <a href="${resetLink}" 
-                           style="background-color: #1e3a8a; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(30, 58, 138, 0.2);">
+                        <a href="${resetLink}" style="background-color: #1e3a8a; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
                             Crear Nueva Contraseña
                         </a>
                     </div>
-                    
-                    <p style="font-size: 0.85rem; color: #64748b; line-height: 1.5;">
-                        Si no solicitaste este cambio, puedes ignorar este mensaje de forma segura. Tu contraseña actual no cambiará.
-                    </p>
                 </div>
             `
         });
 
-        console.log(`✉️ Correo de recuperación enviado a: ${user.email}`);
         res.json({ success: true, message: "Hemos enviado las instrucciones a tu correo electrónico." });
     } catch (error) {
-        console.error("Error al enviar correo de recuperación:", error);
         res.status(500).json({ success: false, message: "Ocurrió un error al intentar enviar el correo." });
     }
 });
 
-// Endpoint B: Procesar la nueva contraseña con el token
-app.post('/api/auth/reset-password', (req, res) => {
-    const { token, newPassword } = req.body;
-
-    if (!token || !newPassword) {
-        return res.status(400).json({ success: false, message: "Faltan datos obligatorios." });
-    }
-
-    if (newPassword.length < 6) {
-        return res.status(400).json({ success: false, message: "La nueva contraseña debe tener al menos 6 caracteres." });
-    }
-
+app.post('/api/auth/reset-password', async (req, res) => {
     try {
+        const { token, newPassword } = req.body;
+
+        if (!token || !newPassword) return res.status(400).json({ success: false, message: "Faltan datos obligatorios." });
+        if (newPassword.length < 6) return res.status(400).json({ success: false, message: "La contraseña debe tener al menos 6 caracteres." });
+
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
         if (decoded.action !== 'reset_password') {
-            return res.status(400).json({ success: false, message: "Token o acción no válida." });
+            return res.status(400).json({ success: false, message: "Acción no válida para este token." });
         }
 
-        const user = users.find(u => u.id === decoded.userId || (u.email && u.email.toLowerCase() === decoded.email.toLowerCase()));
+        const user = await User.findById(decoded.userId);
+        if (!user) return res.status(404).json({ success: false, message: "Usuario no encontrado." });
 
-        if (!user) {
-            return res.status(404).json({ success: false, message: "Usuario no encontrado." });
-        }
+        // 🟢 Encriptar la nueva contraseña con bcrypt antes de guardar
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
 
-        // Actualizamos la contraseña
-        user.password = newPassword;
-        console.log(`🔑 Contraseña actualizada exitosamente para: ${user.email}`);
-
-        res.json({ success: true, message: "Tu contraseña ha sido restablecida con éxito." });
+        res.json({ success: true, message: "Contraseña actualizada con éxito. Ya puedes iniciar sesión." });
     } catch (error) {
-        console.error("Error al restablecer contraseña:", error);
-        res.status(401).json({ success: false, message: "El enlace es inválido o ha expirado (validez de 1 hora)." });
+        res.status(400).json({ success: false, message: "El enlace es inválido o ha expirado." });
     }
 });
-// ─── 12. REDIRECCIÓN DE SEGURIDAD (CATCH-ALL) ─────────────────────────────────
-// Si alguien intenta acceder a una ruta en el backend por accidente desde el navegador,
-// en lugar de mostrar "Cannot GET", lo redirigimos automáticamente a tu Frontend.
-app.get('*', (req, res) => {
-    res.redirect('https://osmeycgm.github.io/English-Mindset');
-});
-// ─── INICIAR SERVIDOR ─────────────────────────────────────────────────────────
+
+// ─── INICIO DEL SERVIDOR ──────────────────────────────────────────────────────
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
+    console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
